@@ -8,3 +8,6 @@ srh/reports/*.json
 
 # SRH generated benchmark results
 srh/benchmarks/results/*.json
+
+# SRH generated synthetic scenario packs
+srh/scenarios/generated/
