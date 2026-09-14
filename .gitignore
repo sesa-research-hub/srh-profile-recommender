@@ -5,3 +5,6 @@ __pycache__/
 
 # SRH generated hardware characterization reports
 srh/reports/*.json
+
+# SRH generated benchmark results
+srh/benchmarks/results/*.json
