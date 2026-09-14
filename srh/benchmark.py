@@ -16,7 +16,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 
-SRH_VERSION = "0.3.1"
+SRH_VERSION = "0.4.0"
 
 
 SCENARIOS = {
@@ -124,6 +124,7 @@ def stream_chat(
     base_url: str,
     model: str,
     config: dict,
+    seed: int,
 ) -> dict:
 
     think_mode = config["mode"] == "think"
@@ -139,6 +140,7 @@ def stream_chat(
         "chat_template_kwargs": {
             "enable_thinking": think_mode,
         },
+        "seed": seed,
         **config["sampling"],
     }
 
@@ -416,6 +418,10 @@ def summarize_runs(runs: list[dict]) -> dict:
         "reasoning_phase_seconds",
         "generation_seconds",
         "answer_generation_seconds",
+        "prompt_tokens",
+        "completion_tokens",
+        "reasoning_tokens",
+        "answer_tokens",
         "total_generation_tokens_per_second",
         "reasoning_tokens_per_second",
         "answer_tokens_per_second",
@@ -470,13 +476,31 @@ def main() -> None:
     parser.add_argument(
         "--runs",
         type=int,
+        default=5,
+        help="Number of measured runs per scenario",
+    )
+
+    parser.add_argument(
+        "--warmup-runs",
+        type=int,
         default=1,
+        help="Warmup runs executed but excluded from statistics",
+    )
+
+    parser.add_argument(
+        "--seed",
+        type=int,
+        default=42,
+        help="Sampling seed used for reproducibility",
     )
 
     args = parser.parse_args()
 
     if args.runs < 1:
         parser.error("--runs must be >= 1")
+
+    if args.warmup_runs < 0:
+        parser.error("--warmup-runs must be >= 0")
 
     selected = (
         SCENARIOS
@@ -502,7 +526,9 @@ def main() -> None:
         print(f"Context     : {model_info.get('max_model_len')}")
         print(f"Snapshot    : {model_info.get('root')}")
 
-    print(f"Runs        : {args.runs}")
+    print(f"Seed        : {args.seed}")
+    print(f"Warmup runs : {args.warmup_runs}")
+    print(f"Measured    : {args.runs}")
     print()
 
     scenario_results = []
@@ -516,6 +542,33 @@ def main() -> None:
         )
 
         runs = []
+
+        for warmup_no in range(
+            1,
+            args.warmup_runs + 1,
+        ):
+            print(
+                f"  warmup {warmup_no}/{args.warmup_runs}...",
+                end=" ",
+                flush=True,
+            )
+
+            try:
+                warmup_result = stream_chat(
+                    args.base_url,
+                    args.model,
+                    config,
+                    args.seed,
+                )
+
+                print(
+                    f"TTFT={warmup_result['ttft_seconds']}s | "
+                    f"finish={warmup_result['finish_reason']} "
+                    f"(excluded)"
+                )
+
+            except Exception as exc:
+                print(f"ERROR: {exc}")
 
         for run_no in range(
             1,
@@ -534,6 +587,7 @@ def main() -> None:
                     args.base_url,
                     args.model,
                     config,
+                    args.seed,
                 )
 
                 runs.append(result)
@@ -567,8 +621,18 @@ def main() -> None:
         print()
 
     report = {
-        "schema": "srh.workload-benchmark.v3",
+        "schema": "srh.workload-benchmark.v4",
         "srh_version": SRH_VERSION,
+
+        "benchmark_protocol": {
+            "type": "workload",
+            "runtime_state": "warm",
+            "prefix_cache": "enabled",
+            "prompt_repetition": "exact",
+            "seed": args.seed,
+            "warmup_runs": args.warmup_runs,
+            "measured_runs": args.runs,
+        },
         "generated_at": datetime.now(
             timezone.utc
         ).isoformat(),
