@@ -9,12 +9,16 @@ from __future__ import annotations
 
 import argparse
 import json
+import hashlib
 import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
+from srh.profiles.capture import capture_profile, canonical_sha256
+
 from srh.experiments.executor import (
+    EXECUTOR_VERSION,
     execute_batch,
     find_experiment,
     load_json,
@@ -181,46 +185,30 @@ def decomposition(
     assistant: dict[str, Any],
 ) -> dict[str, Any]:
 
-    probe_ttfa = probe["ttfa_seconds"]["median"]
-    probe_e2e = probe["elapsed_seconds"]["median"]
+    def median(summary: dict[str, Any], metric: str) -> float | None:
+        return (summary.get(metric) or {}).get("median")
 
-    assistant_ttfa = (
-        assistant["ttfa_seconds"]["median"]
-    )
+    def delta(left: float | None, right: float | None) -> float | None:
+        return round(left - right, 4) if left is not None and right is not None else None
 
-    assistant_e2e = (
-        assistant["elapsed_seconds"]["median"]
-    )
-
+    probe_ttfa = median(probe, "ttfa_seconds")
+    probe_e2e = median(probe, "elapsed_seconds")
+    assistant_ttfa = median(assistant, "ttfa_seconds")
+    assistant_e2e = median(assistant, "elapsed_seconds")
     return {
         "probe": {
             "time_to_first_answer_seconds": probe_ttfa,
-            "post_first_token_seconds": round(
-                probe_e2e - probe_ttfa,
-                4,
-            ),
+            "post_first_token_seconds": delta(probe_e2e, probe_ttfa),
             "end_to_end_seconds": probe_e2e,
         },
-
         "assistant": {
             "time_to_first_answer_seconds": assistant_ttfa,
-            "post_first_token_seconds": round(
-                assistant_e2e - assistant_ttfa,
-                4,
-            ),
+            "post_first_token_seconds": delta(assistant_e2e, assistant_ttfa),
             "end_to_end_seconds": assistant_e2e,
         },
-
         "comparison": {
-            "ttfa_delta_seconds": round(
-                assistant_ttfa - probe_ttfa,
-                4,
-            ),
-
-            "assistant_e2e_overhead_vs_probe_seconds": round(
-                assistant_e2e - probe_e2e,
-                4,
-            ),
+            "ttfa_delta_seconds": delta(assistant_ttfa, probe_ttfa),
+            "assistant_e2e_overhead_vs_probe_seconds": delta(assistant_e2e, probe_e2e),
         },
     }
 
@@ -244,6 +232,15 @@ def main() -> None:
     parser.add_argument(
         "--model",
         default="qwen3.8-flash-next",
+    )
+
+    parser.add_argument(
+        "--container",
+        default="qwen38-flash",
+        help=(
+            "Live runtime container used to capture the "
+            "immutable SRH profile fingerprint."
+        ),
     )
 
     parser.add_argument(
@@ -274,6 +271,11 @@ def main() -> None:
         parser.error(
             "--repetitions must be >= 1"
         )
+
+    runtime_profile = capture_profile(
+        args.container,
+        args.base_url,
+    )
 
     plan = load_json(
         Path(args.plan)
@@ -372,6 +374,10 @@ def main() -> None:
     print("=" * 72)
     print(f"Version     : {VERSION}")
     print(f"Workload    : {plan['workload']['id']}")
+    print(
+        f"Profile     : "
+        f"{runtime_profile['profile_id']}"
+    )
     print(f"Experiment  : {args.experiment_id}")
     print(f"Concurrency : {experiment['concurrency']}")
     print(f"Cache state : {experiment['cache_state']}")
@@ -456,6 +462,8 @@ def main() -> None:
         summaries["assistant"],
     )
 
+    end_profile = capture_profile(args.container, args.base_url)
+
     report = {
         "schema": SCHEMA,
         "version": VERSION,
@@ -479,6 +487,32 @@ def main() -> None:
             "model": args.model,
         },
 
+        "runtime_profile": {
+            "profile_id": runtime_profile["profile_id"],
+            "profile_sha256": runtime_profile["profile_sha256"],
+            "capture_version": runtime_profile["capture_version"],
+            "execution_identity": runtime_profile["execution_identity"],
+            "provenance": runtime_profile["provenance"],
+        },
+
+        "runtime_verification": {
+            "stable": end_profile["profile_sha256"] == runtime_profile["profile_sha256"],
+            "end_profile_sha256": end_profile["profile_sha256"],
+        },
+        "comparison": {
+            "pack_sha256": canonical_sha256({
+                "request": request_text, "ground_truth": ground_truth,
+                "manifest": manifest,
+            }),
+            "response_contract": response_contract,
+            "quality_requirements": quality_requirements,
+            "seed": args.seed,
+            "ground_truth": ground_truth,
+            "evaluator_sha256": hashlib.sha256(
+                (Path(__file__).resolve().parents[1] / "scenarios" / "run_pack.py").read_bytes()
+            ).hexdigest(),
+            "executor_version": EXECUTOR_VERSION,
+        },
         "protocol": {
             "type": "paired-interleaved",
             "repetitions": args.repetitions,
@@ -541,10 +575,10 @@ def main() -> None:
         print(
             f"{mode:<10} "
             f"TTFA median="
-            f"{summary['ttfa_seconds']['median']}s | "
-            f"p95={summary['ttfa_seconds']['p95']}s | "
+            f"{(summary.get('ttfa_seconds') or {}).get('median')}s | "
+            f"p95={(summary.get('ttfa_seconds') or {}).get('p95')}s | "
             f"E2E median="
-            f"{summary['elapsed_seconds']['median']}s | "
+            f"{(summary.get('elapsed_seconds') or {}).get('median')}s | "
             f"quality="
             f"{summary['quality']['pass_rate']:.0%}"
         )

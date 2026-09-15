@@ -13,10 +13,13 @@ from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 
-from contract import load_contract
+if __package__:
+    from .contract import load_contract
+else:
+    from contract import load_contract
 
 
-PLANNER_VERSION = "0.1.0"
+PLANNER_VERSION = "0.2.0"
 PLAN_SCHEMA = "srh.experiment-plan.v1"
 
 
@@ -194,6 +197,17 @@ def build_plan(contract: dict[str, Any]) -> dict[str, Any]:
     #    cache reuse is materially present.
     #
     if repeated_probability > 0 or shared_prefix_probability > 0:
+        experiments.append(
+            _point(
+                experiment_id=f"shared-prefix-p50-c{c_min}",
+                purpose="Isolate prefix reuse at the same input size and concurrency as baseline.",
+                concurrency=c_min,
+                input_tokens=in_p50,
+                output_tokens=out_p50,
+                percentile_class="p50",
+                cache_state="shared-prefix",
+            )
+        )
         experiments.append(
             _point(
                 experiment_id=f"shared-prefix-p95-c{c_max}",

@@ -20,3 +20,9 @@ srh/experiments/results/
 
 # SRH decision results
 srh/decision/results/
+
+# SRH captured runtime profiles
+srh/profiles/captured/
+
+# SRH generated recommendations and campaigns (may contain local runtime config)
+srh/recommendation/results/

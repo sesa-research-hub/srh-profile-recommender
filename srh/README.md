@@ -28,3 +28,14 @@ SRH baseline profile.
 
 The baseline is not an autotuning result. Subsequent SRH components
 will benchmark the machine and derive workload-specific profiles.
+
+## Profile Recommender
+
+`python3 -m srh.recommendation.engine` compares observed runtime configurations
+for a workload contract and a specific experiment. It replays semantic evaluation,
+recomputes metrics from raw requests, applies quality/SLO gates and writes a
+traceable recommendation or an explicit refusal to recommend.
+
+`python3 -m srh.recommendation.campaign` measures the baseline and two prefill
+variants while preserving and restoring the original Docker container.
+See [the operating guide](recommendation/README.md) for commands and limitations.
