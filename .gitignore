@@ -5,3 +5,24 @@ __pycache__/
 
 # SRH generated hardware characterization reports
 srh/reports/*.json
+
+# SRH generated benchmark results
+srh/benchmarks/results/*.json
+
+# SRH generated synthetic scenario packs
+srh/scenarios/generated/
+
+# SRH scenario evaluation results
+srh/scenarios/results/
+
+# SRH experiment execution results
+srh/experiments/results/
+
+# SRH decision results
+srh/decision/results/
+
+# SRH captured runtime profiles
+srh/profiles/captured/
+
+# SRH generated recommendations and campaigns (may contain local runtime config)
+srh/recommendation/results/

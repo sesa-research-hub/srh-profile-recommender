@@ -1,0 +1,148 @@
+{
+  "schema": "srh.experiment-plan.v1",
+  "planner_version": "0.1.0",
+  "generated_at": "2026-09-15T07:42:00.485897+00:00",
+  "workload": {
+    "id": "document-rag-sme",
+    "class": "rag"
+  },
+  "source_contract_schema": "srh.workload-contract.v1",
+  "service_objectives": {
+    "ttfa_p95_ms": 2000,
+    "answer_tokens_per_second_min": 15,
+    "end_to_end_p95_ms": 45000,
+    "error_rate_max": 0.01
+  },
+  "quality_requirements": {
+    "grounding_required": true,
+    "citation_required": true,
+    "tool_call_correctness_required": false,
+    "structured_output_required": false,
+    "minimum_score": 0.95
+  },
+  "execution_policy": {
+    "reasoning": "disabled",
+    "streaming": true,
+    "response_contract": {
+      "modes": [
+        "probe",
+        "assistant"
+      ],
+      "default_mode": "assistant",
+      "structured_result_required": true,
+      "probe_max_tokens": 128,
+      "assistant_max_tokens": 1536
+    }
+  },
+  "planning": {
+    "strategy": "representative-envelope",
+    "declared_concurrency": [
+      1,
+      2,
+      4,
+      8
+    ],
+    "experiment_count": 9
+  },
+  "experiments": [
+    {
+      "experiment_id": "baseline-p50-c1",
+      "purpose": "Measure nominal single-user interactive latency and generation throughput.",
+      "concurrency": 1,
+      "request": {
+        "input_tokens": 8000,
+        "output_tokens": 300,
+        "percentile_class": "p50"
+      },
+      "cache_state": "warm"
+    },
+    {
+      "experiment_id": "concurrency-p50-c2",
+      "purpose": "Measure degradation and throughput scaling under concurrent nominal requests.",
+      "concurrency": 2,
+      "request": {
+        "input_tokens": 8000,
+        "output_tokens": 300,
+        "percentile_class": "p50"
+      },
+      "cache_state": "warm"
+    },
+    {
+      "experiment_id": "concurrency-p50-c4",
+      "purpose": "Measure degradation and throughput scaling under concurrent nominal requests.",
+      "concurrency": 4,
+      "request": {
+        "input_tokens": 8000,
+        "output_tokens": 300,
+        "percentile_class": "p50"
+      },
+      "cache_state": "warm"
+    },
+    {
+      "experiment_id": "concurrency-p50-c8",
+      "purpose": "Measure degradation and throughput scaling under concurrent nominal requests.",
+      "concurrency": 8,
+      "request": {
+        "input_tokens": 8000,
+        "output_tokens": 300,
+        "percentile_class": "p50"
+      },
+      "cache_state": "warm"
+    },
+    {
+      "experiment_id": "tail-p95-c1",
+      "purpose": "Measure latency for a representative tail request without concurrency interference.",
+      "concurrency": 1,
+      "request": {
+        "input_tokens": 32000,
+        "output_tokens": 600,
+        "percentile_class": "p95"
+      },
+      "cache_state": "warm"
+    },
+    {
+      "experiment_id": "tail-p95-c8",
+      "purpose": "Measure interaction between tail-size requests and maximum declared concurrency.",
+      "concurrency": 8,
+      "request": {
+        "input_tokens": 32000,
+        "output_tokens": 600,
+        "percentile_class": "p95"
+      },
+      "cache_state": "warm"
+    },
+    {
+      "experiment_id": "max-envelope-c1",
+      "purpose": "Validate the maximum request envelope declared by the workload contract.",
+      "concurrency": 1,
+      "request": {
+        "input_tokens": 96000,
+        "output_tokens": 1200,
+        "percentile_class": "max"
+      },
+      "cache_state": "warm"
+    },
+    {
+      "experiment_id": "cold-p95-c1",
+      "purpose": "Measure p95 request behavior without assuming prefix-cache reuse.",
+      "concurrency": 1,
+      "request": {
+        "input_tokens": 32000,
+        "output_tokens": 600,
+        "percentile_class": "p95"
+      },
+      "cache_state": "cold"
+    },
+    {
+      "experiment_id": "shared-prefix-p95-c8",
+      "purpose": "Quantify the benefit and scheduling behavior of repeated or shared context.",
+      "concurrency": 8,
+      "request": {
+        "input_tokens": 32000,
+        "output_tokens": 300,
+        "percentile_class": "p95"
+      },
+      "cache_state": "shared-prefix"
+    }
+  ]
+}
