@@ -17,3 +17,6 @@ srh/scenarios/results/
 
 # SRH experiment execution results
 srh/experiments/results/
+
+# SRH decision results
+srh/decision/results/
