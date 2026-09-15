@@ -3,15 +3,17 @@
   "id": "document-rag-sme",
   "name": "SME Document RAG",
   "description": "Interactive private RAG workload for document-centric SME applications with concurrent users and medium-to-long retrieved context.",
-
   "workload_class": "rag",
-
   "traffic": {
-    "concurrent_users": [1, 2, 4, 8],
+    "concurrent_users": [
+      1,
+      2,
+      4,
+      8
+    ],
     "requests_per_minute": 12,
     "burst_factor": 2.0
   },
-
   "request_profile": {
     "input_tokens": {
       "p50": 8000,
@@ -26,29 +28,35 @@
     "reasoning": "disabled",
     "streaming": true
   },
-
   "context_behavior": {
-    "shared_prefix_probability": 0.60,
-    "repeated_context_probability": 0.30,
+    "shared_prefix_probability": 0.6,
+    "repeated_context_probability": 0.3,
     "maximum_required_context_tokens": 98304
   },
-
   "tools": {
     "enabled": false
   },
-
   "service_objectives": {
     "ttfa_p95_ms": 2000,
     "answer_tokens_per_second_min": 15,
     "end_to_end_p95_ms": 45000,
     "error_rate_max": 0.01
   },
-
   "quality": {
     "grounding_required": true,
     "citation_required": true,
     "tool_call_correctness_required": false,
     "structured_output_required": false,
     "minimum_score": 0.95
+  },
+  "response_contract": {
+    "modes": [
+      "probe",
+      "assistant"
+    ],
+    "default_mode": "assistant",
+    "structured_result_required": true,
+    "probe_max_tokens": 128,
+    "assistant_max_tokens": 1536
   }
 }

@@ -17,9 +17,9 @@ from pathlib import Path
 from typing import Any
 
 
-GENERATOR_VERSION = "0.2.0"
+GENERATOR_VERSION = "0.3.0"
 PACK_SCHEMA = "srh.synthetic-scenario-pack.v1"
-SCENARIO_ID = "enterprise-orders-rag-v2"
+SCENARIO_ID = "enterprise-orders-rag-v3"
 
 TARGET_SOURCE = "SRC-TARGET-001"
 
@@ -212,12 +212,14 @@ def render_request(context: str) -> str:
         "il 18 settembre 2026 e quale attivita risulta ancora "
         "necessaria? Indica anche l'identificativo SRC che prova "
         "la risposta.\n\n"
-        "Puoi motivare brevemente la risposta e discutere eventuali "
-        "record simili. Come ultima riga devi però emettere un risultato "
-        "machine-readable nel formato seguente, senza markdown:\n"
+        "Emetti come prima riga un risultato machine-readable "
+        "nel formato seguente, senza markdown:\n"
         "SRH_RESULT: {\"order\":\"<ordine>\","
         "\"activity\":\"<attivita>\","
         "\"evidence_source_id\":\"<SRC>\"}\n"
+        "Dopo questa prima riga puoi motivare brevemente la risposta "
+        "e discutere eventuali record simili. Non emettere un secondo "
+        "SRH_RESULT.\n"
     )
 
 

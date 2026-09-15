@@ -244,6 +244,17 @@ def build_plan(contract: dict[str, Any]) -> dict[str, Any]:
         "source_contract_schema": contract["schema"],
         "service_objectives": contract["service_objectives"],
         "quality_requirements": contract.get("quality", {}),
+        "execution_policy": {
+            "reasoning": contract["request_profile"].get(
+                "reasoning",
+                "disabled",
+            ),
+            "streaming": contract["request_profile"].get(
+                "streaming",
+                True,
+            ),
+            "response_contract": contract["response_contract"],
+        },
         "planning": {
             "strategy": "representative-envelope",
             "declared_concurrency": concurrency,

@@ -1,7 +1,7 @@
 {
   "schema": "srh.experiment-plan.v1",
   "planner_version": "0.1.0",
-  "generated_at": "2026-09-14T16:16:19.419607+00:00",
+  "generated_at": "2026-09-15T07:42:00.485897+00:00",
   "workload": {
     "id": "document-rag-sme",
     "class": "rag"
@@ -19,6 +19,20 @@
     "tool_call_correctness_required": false,
     "structured_output_required": false,
     "minimum_score": 0.95
+  },
+  "execution_policy": {
+    "reasoning": "disabled",
+    "streaming": true,
+    "response_contract": {
+      "modes": [
+        "probe",
+        "assistant"
+      ],
+      "default_mode": "assistant",
+      "structured_result_required": true,
+      "probe_max_tokens": 128,
+      "assistant_max_tokens": 1536
+    }
   },
   "planning": {
     "strategy": "representative-envelope",

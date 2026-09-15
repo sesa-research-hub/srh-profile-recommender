@@ -257,6 +257,75 @@ def validate_contract(
             "agent workload has tools.enabled=false"
         )
 
+    response_contract = contract.get("response_contract")
+
+    if not isinstance(response_contract, dict):
+        errors.append(
+            "response_contract must be an object"
+        )
+    else:
+        modes = response_contract.get("modes")
+        default_mode = response_contract.get("default_mode")
+
+        if not isinstance(modes, list) or not modes:
+            errors.append(
+                "response_contract.modes must be a non-empty array"
+            )
+        elif default_mode not in modes:
+            errors.append(
+                "response_contract.default_mode must be included "
+                "in response_contract.modes"
+            )
+
+        for limit_name in (
+            "probe_max_tokens",
+            "assistant_max_tokens",
+        ):
+            value = response_contract.get(limit_name)
+
+            if (
+                not isinstance(value, int)
+                or isinstance(value, bool)
+                or value < 1
+            ):
+                errors.append(
+                    f"response_contract.{limit_name} "
+                    "must be a positive integer"
+                )
+
+        assistant_cap = response_contract.get(
+            "assistant_max_tokens"
+        )
+
+        output_max = (
+            output_tokens.get("max")
+            if isinstance(output_tokens, dict)
+            else None
+        )
+
+        if (
+            isinstance(assistant_cap, int)
+            and isinstance(output_max, int)
+            and assistant_cap < output_max
+        ):
+            errors.append(
+                "response_contract.assistant_max_tokens "
+                "must be >= request_profile.output_tokens.max "
+                f"({assistant_cap} < {output_max})"
+            )
+
+        if (
+            response_contract.get(
+                "structured_result_required"
+            ) is not True
+            and contract.get("quality")
+        ):
+            warnings.append(
+                "quality requirements exist without a required "
+                "structured result; deterministic evaluation "
+                "may be limited"
+            )
+
     return errors, warnings
 
 

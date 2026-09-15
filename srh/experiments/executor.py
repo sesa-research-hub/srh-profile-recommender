@@ -14,6 +14,7 @@ import math
 import statistics
 import threading
 import time
+import uuid
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
@@ -22,7 +23,7 @@ from srh.benchmark import stream_chat
 from srh.scenarios.run_pack import evaluate_answer
 
 
-EXECUTOR_VERSION = "0.1.0"
+EXECUTOR_VERSION = "0.3.0"
 RESULT_SCHEMA = "srh.experiment-result.v1"
 
 
@@ -93,10 +94,11 @@ def prepare_request(
     cache_state: str,
     repetition: int,
     request_no: int,
+    run_id: str,
 ) -> str:
     instance = (
         "[SRH REQUEST INSTANCE "
-        f"{repetition:04d}-{request_no:04d}]"
+        f"{run_id}-{repetition:04d}-{request_no:04d}]"
     )
 
     # cold/warm measure an uncached request prefix.
@@ -112,12 +114,64 @@ def prepare_request(
     return base_request
 
 
+def resolve_reasoning_mode(
+    policy: str,
+    override: str,
+) -> str:
+    if override == "disabled":
+        return "no-think"
+
+    if override == "required":
+        return "think"
+
+    if policy == "disabled":
+        return "no-think"
+
+    if policy == "required":
+        return "think"
+
+    if policy == "optional":
+        raise ValueError(
+            "reasoning policy is optional: select an explicit "
+            "--reasoning-mode disabled|required for this experiment"
+        )
+
+    raise ValueError(
+        f"unsupported reasoning policy: {policy!r}"
+    )
+
+
+def render_response_mode(
+    base_request: str,
+    response_mode: str,
+) -> str:
+    if response_mode == "assistant":
+        return base_request
+
+    if response_mode == "probe":
+        return (
+            base_request
+            + "\n\n"
+            + "SRH EXECUTION MODE: PROBE\n"
+            + "Do not provide explanations, analysis, alternatives, "
+            + "or markdown. Return exactly one line in this format:\n"
+            + 'SRH_RESULT: {"order":"<ordine>",'
+            + '"activity":"<attivita>",'
+            + '"evidence_source_id":"<SRC>"}\n'
+        )
+
+    raise ValueError(
+        f"unsupported response mode: {response_mode!r}"
+    )
+
+
 def make_config(
     request_text: str,
     max_tokens: int,
+    model_mode: str,
 ) -> dict[str, Any]:
     return {
-        "mode": "no-think",
+        "mode": model_mode,
         "messages": [
             {
                 "role": "user",
@@ -141,6 +195,7 @@ def execute_one(
     max_tokens: int,
     seed: int,
     request_no: int,
+    model_mode: str,
 ) -> dict[str, Any]:
     barrier.wait()
 
@@ -153,6 +208,7 @@ def execute_one(
             make_config(
                 request_text,
                 max_tokens,
+                model_mode,
             ),
             seed,
         )
@@ -198,6 +254,7 @@ def prewarm(
     max_tokens: int,
     seed: int,
     cache_state: str,
+    model_mode: str,
 ) -> dict[str, Any]:
 
     if cache_state == "warm":
@@ -233,6 +290,7 @@ def prewarm(
         make_config(
             warmup_text,
             min(max_tokens, 32),
+            model_mode,
         ),
         seed,
     )
@@ -247,10 +305,19 @@ def execute_batch(
     experiment: dict[str, Any],
     repetition: int,
     seed: int,
+    model_mode: str,
+    response_mode: str,
+    generation_max_tokens: int,
+    run_id: str,
 ) -> dict[str, Any]:
     concurrency = experiment["concurrency"]
     cache_state = experiment["cache_state"]
-    max_tokens = experiment["request"]["output_tokens"]
+    max_tokens = generation_max_tokens
+
+    execution_request = render_response_mode(
+        base_request,
+        response_mode,
+    )
 
     warmup = None
 
@@ -260,10 +327,11 @@ def execute_batch(
         warmup_result = prewarm(
             base_url=base_url,
             model=model,
-            request_text=base_request,
+            request_text=execution_request,
             max_tokens=max_tokens,
             seed=seed,
             cache_state=cache_state,
+            model_mode=model_mode,
         )
 
         warmup = {
@@ -283,10 +351,11 @@ def execute_batch(
 
     requests = [
         prepare_request(
-            base_request,
+            execution_request,
             cache_state,
             repetition,
             request_no,
+            run_id,
         )
         for request_no in range(1, concurrency + 1)
     ]
@@ -307,6 +376,7 @@ def execute_batch(
                 max_tokens=max_tokens,
                 seed=seed,
                 request_no=request_no,
+                model_mode=model_mode,
             )
             for request_no, request_text
             in enumerate(requests, start=1)
@@ -480,6 +550,25 @@ def main() -> None:
         default=42,
     )
 
+    parser.add_argument(
+        "--response-mode",
+        choices=["probe", "assistant"],
+        help=(
+            "Override response mode declared by the workload. "
+            "Defaults to response_contract.default_mode."
+        ),
+    )
+
+    parser.add_argument(
+        "--reasoning-mode",
+        choices=["plan", "disabled", "required"],
+        default="plan",
+        help=(
+            "Use reasoning policy from the plan or explicitly "
+            "force disabled/required for an experiment."
+        ),
+    )
+
     args = parser.parse_args()
 
     if args.repetitions < 1:
@@ -493,6 +582,73 @@ def main() -> None:
         plan,
         args.experiment_id,
     )
+
+    execution_policy = plan.get(
+        "execution_policy",
+        {},
+    )
+
+    if execution_policy.get("streaming", True) is not True:
+        raise SystemExit(
+            "executor v0.2 currently requires streaming=true"
+        )
+
+    reasoning_policy = execution_policy.get(
+        "reasoning",
+        "disabled",
+    )
+
+    try:
+        model_mode = resolve_reasoning_mode(
+            reasoning_policy,
+            args.reasoning_mode,
+        )
+    except ValueError as exc:
+        raise SystemExit(str(exc)) from exc
+
+    response_contract = execution_policy.get(
+        "response_contract",
+        {},
+    )
+
+    allowed_response_modes = response_contract.get(
+        "modes",
+        ["assistant"],
+    )
+
+    response_mode = (
+        args.response_mode
+        or response_contract.get(
+            "default_mode",
+            "assistant",
+        )
+    )
+
+    if response_mode not in allowed_response_modes:
+        raise SystemExit(
+            f"response mode {response_mode!r} is not allowed "
+            f"by workload contract: {allowed_response_modes}"
+        )
+
+    generation_limit_key = (
+        f"{response_mode}_max_tokens"
+    )
+
+    generation_max_tokens = response_contract.get(
+        generation_limit_key
+    )
+
+    if (
+        not isinstance(generation_max_tokens, int)
+        or isinstance(generation_max_tokens, bool)
+        or generation_max_tokens < 1
+    ):
+        raise SystemExit(
+            f"invalid or missing response contract limit: "
+            f"{generation_limit_key}"
+        )
+
+    run_id = uuid.uuid4().hex[:12]
 
     manifest = load_json(
         pack_dir / "manifest.json"
@@ -525,6 +681,10 @@ def main() -> None:
     print(f"Experiment  : {args.experiment_id}")
     print(f"Concurrency : {experiment['concurrency']}")
     print(f"Cache state : {experiment['cache_state']}")
+    print(f"Reasoning   : {reasoning_policy} -> {model_mode}")
+    print(f"Response    : {response_mode}")
+    print(f"Generation : max {generation_max_tokens} tokens")
+    print(f"Run ID      : {run_id}")
     print(f"Input target: {experiment_input}")
     print(
         f"Input actual: "
@@ -553,6 +713,10 @@ def main() -> None:
             experiment=experiment,
             repetition=repetition,
             seed=args.seed,
+            model_mode=model_mode,
+            response_mode=response_mode,
+            generation_max_tokens=generation_max_tokens,
+            run_id=run_id,
         )
 
         batches.append(batch)
@@ -589,7 +753,15 @@ def main() -> None:
             "endpoint": args.base_url,
             "model": args.model,
         },
+        "execution_policy": {
+            "reasoning_contract": reasoning_policy,
+            "resolved_model_mode": model_mode,
+            "response_mode": response_mode,
+            "generation_max_tokens": generation_max_tokens,
+            "response_contract": response_contract,
+        },
         "protocol": {
+            "run_id": run_id,
             "repetitions": args.repetitions,
             "arrival": "simultaneous",
             "percentile_method": "nearest-rank",
