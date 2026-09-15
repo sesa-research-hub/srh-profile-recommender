@@ -1,0 +1,21 @@
+SRH Private AI — Profile Recommender
+Copyright 2026 Sesa Research Hub
+
+This repository retains software from blazux/qwen3.8-Flash-DGX.
+Copyright 2026 blazux
+https://github.com/blazux/qwen3.8-Flash-DGX
+
+src/mamba_utils_guarded.py retains the following upstream attribution:
+Copyright contributors to the vLLM project
+https://github.com/vllm-project/vllm
+
+SRH contributions add workload contracts, experiment planning, observed runtime
+profiles, evidence validation, decision policies, tests and documentation.
+The original root runtime README was moved to README.upstream.md; the root
+README and licensing documentation were updated by Sesa Research Hub.
+Original upstream copyright and file-level notices are retained.
+
+External model weights, NVIDIA software and downloaded runtime dependencies
+retain their own licenses. Their use in experiments does not transfer their
+ownership to SRH or subject them to the Apache license of SRH source code.
+No endorsement by the upstream authors or vendors is implied.
