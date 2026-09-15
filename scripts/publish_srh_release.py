@@ -8,7 +8,7 @@ import subprocess
 import urllib.error
 import urllib.request
 
-REPO = 'sesa-research-hub/srh-private-ai'
+REPO = 'sesa-research-hub/srh-profile-recommender'
 BRANCH = 'feature/srh-workload-intelligence'
 TAG = 'srh-profile-recommender-v0.1.0-alpha.1'
 ROOT = Path(__file__).resolve().parents[1]

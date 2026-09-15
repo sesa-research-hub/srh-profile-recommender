@@ -5,7 +5,7 @@ The release is `srh-profile-recommender-v0.1.0-alpha.1`, a public prerelease of 
 Run from a clean, committed `feature/srh-workload-intelligence` branch:
 
 ```bash
-cd ~/ai/srh-private-ai
+cd ~/ai/srh-profile-recommender
 git -c credential.helper= push -u origin feature/srh-workload-intelligence
 python3 scripts/publish_srh_release.py --publish
 ```
