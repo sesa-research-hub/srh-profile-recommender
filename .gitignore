@@ -11,3 +11,9 @@ srh/benchmarks/results/*.json
 
 # SRH generated synthetic scenario packs
 srh/scenarios/generated/
+
+# SRH scenario evaluation results
+srh/scenarios/results/
+
+# SRH experiment execution results
+srh/experiments/results/

@@ -17,9 +17,9 @@ from pathlib import Path
 from typing import Any
 
 
-GENERATOR_VERSION = "0.1.0"
+GENERATOR_VERSION = "0.2.0"
 PACK_SCHEMA = "srh.synthetic-scenario-pack.v1"
-SCENARIO_ID = "enterprise-orders-rag-v1"
+SCENARIO_ID = "enterprise-orders-rag-v2"
 
 TARGET_SOURCE = "SRC-TARGET-001"
 
@@ -211,7 +211,13 @@ def render_request(context: str) -> str:
         "Per il cliente Alfa, quale ordine ha consegna prevista "
         "il 18 settembre 2026 e quale attivita risulta ancora "
         "necessaria? Indica anche l'identificativo SRC che prova "
-        "la risposta.\n"
+        "la risposta.\n\n"
+        "Puoi motivare brevemente la risposta e discutere eventuali "
+        "record simili. Come ultima riga devi però emettere un risultato "
+        "machine-readable nel formato seguente, senza markdown:\n"
+        "SRH_RESULT: {\"order\":\"<ordine>\","
+        "\"activity\":\"<attivita>\","
+        "\"evidence_source_id\":\"<SRC>\"}\n"
     )
 
 
@@ -428,7 +434,11 @@ def main() -> None:
             "activity": "collaudo finale da eseguire",
             "evidence_source_id": TARGET_SOURCE,
         },
-        "forbidden_confusions": [
+        "evaluation": {
+            "mode": "structured-final",
+            "marker": "SRH_RESULT:"
+        },
+        "forbidden_selections": [
             "A103",
             "B205",
             "SRC-HARD-001",
