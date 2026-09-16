@@ -43,6 +43,11 @@ answer throughput, request errors and deterministic extraction/citation quality.
 with the same profile, concurrency and repetition count form one comparable session;
 quality and every SLO gate are applied before latency ranking.
 
+The UI reports the number of answer tokens actually produced. Its observed end-to-end
+time therefore describes the short extraction response. A separate planning bridge
+shows how long generation of the contract's p95 output would take at the observed
+minimum rate, without presenting that extrapolation as a measured stress result.
+
 This is real local inference evidence for the synthetic readiness scenario. It is not
 client acceptance evidence: the final campaign still requires client documents,
 expert-validated ground truth, OCR/retrieval components and the exact application.

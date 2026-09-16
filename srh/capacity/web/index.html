@@ -96,8 +96,8 @@
       <details class="candidate-matrix"><summary>Vedi tutte le combinazioni analizzate</summary><div id="candidate-matrix"></div></details>
       <div class="result-grid"><div class="panel compact"><h3>Piano di prova</h3><div id="test-plan"></div></div><div class="panel compact"><h3>Assunzioni e copertura</h3><div id="assumptions"></div></div></div>
       <details class="panel measured">
-        <summary>Testa modelli reali e costruisci la recommendation</summary>
-        <p>Il planner rileva i runtime OpenAI-compatible già attivi sul DGX e propone anche modelli di riferimento non installati. Un modello locale produce misure reali; un modello di riferimento produce soltanto una simulazione dichiarata.</p>
+        <summary>Misura modelli reali e confrontali con gli obiettivi</summary>
+        <p>Il planner rileva i runtime OpenAI-compatible già attivi sul DGX. Il test locale misura una breve estrazione documentale e mostra separatamente avvio, lunghezza realmente prodotta, velocità e qualità. I modelli di riferimento restano simulazioni dichiarate.</p>
         <div class="runtime-box">
           <div class="grid two">
             <label>Modello da valutare<select id="runtime-model-select"><option value="">Rilevamento in corso…</option></select></label>
@@ -127,7 +127,7 @@
     </section>
     <div id="error" class="error hidden"></div>
   </main>
-  <footer>SRH Profile Recommender · Capacity Planner 0.1 · Le decisioni finali richiedono evidenze misurate.</footer>
+  <footer>SRH Profile Recommender · Capacity Planner 0.2 · Le decisioni finali richiedono evidenze misurate.</footer>
   <script src="/app.js"></script>
 </body>
 </html>

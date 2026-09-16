@@ -58,7 +58,8 @@ class LocalRuntimeTests(unittest.TestCase):
 
         def runner(endpoint, model, config, seed):
             return {"answer": answer, "ttfa_seconds": 1.0, "elapsed_seconds": 10.0,
-                    "answer_tokens_per_second": 20.0, "prompt_tokens": 2000}
+                    "answer_tokens_per_second": 20.0, "answer_tokens": 100,
+                    "prompt_tokens": 2000}
 
         report = run_local_benchmark(
             endpoint="http://127.0.0.1:18300/v1", model="test", contract=self.contract,
@@ -66,6 +67,12 @@ class LocalRuntimeTests(unittest.TestCase):
         )
         self.assertEqual(report["summary"]["request_count"], 4)
         self.assertEqual(report["summary"]["quality_pass_rate"], 1.0)
+        self.assertEqual(report["summary"]["answer_tokens"]["p95"], 100.0)
+        self.assertEqual(report["objective_summary"], {"met": 5, "total": 5})
+        self.assertEqual(
+            report["planning_bridge"]["generation_seconds_for_contract_p95_output_at_observed_min_rate"],
+            self.contract["request_profile"]["output_tokens"]["p95"] / 20,
+        )
         self.assertTrue(report["all_checks_pass"])
 
     def test_named_reference_preserves_source_and_fails_hard_capacity(self):

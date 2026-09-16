@@ -186,6 +186,7 @@ def run_local_benchmark(
         "ttfa_seconds": _metric([run.get("ttfa_seconds") for run in successful]),
         "elapsed_seconds": _metric([run.get("elapsed_seconds") for run in successful]),
         "answer_tokens_per_second": _metric([run.get("answer_tokens_per_second") for run in successful]),
+        "answer_tokens": _metric([run.get("answer_tokens") for run in successful]),
         "prompt_tokens": _metric([run.get("prompt_tokens") for run in successful]),
         "quality_score": _metric(qualities),
         "quality_pass_rate": round(sum(run["quality"]["pass"] for run in runs) / total, 4),
@@ -201,6 +202,12 @@ def run_local_benchmark(
     for name, check in checks.items():
         actual = check["actual"]
         check["pass"] = actual is not None and (actual >= check["target"] if name in {"answer_speed_min", "quality_minimum"} else actual <= check["target"])
+    observed_min_tps = (summary["answer_tokens_per_second"] or {}).get("min")
+    contract_p95_output_tokens = request["output_tokens"]["p95"]
+    generation_seconds_at_observed_rate = (
+        round(contract_p95_output_tokens / observed_min_tps, 2)
+        if observed_min_tps and observed_min_tps > 0 else None
+    )
     return {
         "schema": "srh.local-readiness-benchmark.v1",
         "generated_at": datetime.now(timezone.utc).isoformat(),
@@ -212,11 +219,21 @@ def run_local_benchmark(
         "profile": profile,
         "requested_input_tokens": target_input,
         "requested_output_tokens": target_output,
+        "contract_p95_input_tokens": request["input_tokens"]["p95"],
+        "contract_p95_output_tokens": contract_p95_output_tokens,
         "repetitions": repetitions,
         "concurrency": concurrency,
         "scenario": "synthetic-italian-construction-tender-v1",
         "summary": summary,
         "checks": checks,
+        "objective_summary": {
+            "met": sum(check["pass"] for check in checks.values()),
+            "total": len(checks),
+        },
+        "planning_bridge": {
+            "generation_seconds_for_contract_p95_output_at_observed_min_rate": generation_seconds_at_observed_rate,
+            "explanation": "This extrapolates generation only. It excludes p95 prompt processing and is not a replacement for the stress benchmark.",
+        },
         "all_checks_pass": all(check["pass"] for check in checks.values()),
         "runs": runs,
         "decision_boundary": "Readiness evidence for this synthetic scenario; client documents and expert ground truth are still required.",
