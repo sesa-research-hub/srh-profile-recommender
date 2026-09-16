@@ -40,6 +40,8 @@ Scenario Builder → Application Adapter → Benchmark Harness
 - uncertainty-band benchmark priorities with explicit capacity and SLO gates;
 - separate sparse-model routing allowance and wider MoE uncertainty, both marked
   as uncalibrated SRH heuristics.
+- vendor-interactive performance anchors where comparable evidence exists, with
+  continuous-batching retention kept separate from aggregate throughput.
 
 ## Existing measured layer
 

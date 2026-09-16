@@ -53,7 +53,7 @@ class CapacityPlannerTests(unittest.TestCase):
         self.assertEqual(len(plan["integrity"]["client_intake_sha256"]), 64)
         self.assertEqual(len(plan["integrity"]["translated_contract_sha256"]), 64)
         self.assertIn("critical_requirement_recall", plan["benchmark_handoff"]["measurement_kpis"]["domain_quality"])
-        self.assertEqual(plan["projection_model"]["provenance"], "SRH_HEURISTIC")
+        self.assertEqual(plan["projection_model"]["provenance"], "MIXED_VENDOR_ANCHOR_AND_SRH_HEURISTIC")
 
     def test_lower_precision_requires_less_capacity(self):
         plan = build_capacity_plan(self.intake)
@@ -73,23 +73,28 @@ class CapacityPlannerTests(unittest.TestCase):
         self.assertTrue(rejected)
         self.assertTrue(all("POWER_LIMIT_EXCEEDED" in row["blockers"] for row in rejected))
 
-    def test_shortlist_spans_hardware_when_feasible(self):
+    def test_shortlist_never_trades_down_a_screening_tier_for_diversity(self):
         plan = build_capacity_plan(self.intake)
         ids = set(plan["screening_summary"]["shortlist_candidate_ids"])
         rows = [row for row in plan["candidates"] if row["candidate_id"] in ids]
-        self.assertEqual(
-            len({row["hardware"]["id"] for row in rows}),
-            min(len(rows), len(self.intake["exploration"]["hardware_ids"])),
-        )
         feasible_models = {
             row["model"]["id"] for row in plan["candidates"]
             if row["screening_status"] != "NOT_FEASIBLE"
         }
         self.assertEqual({row["model"]["id"] for row in rows}, feasible_models)
+        rank = {"STRONG_FIT": 0, "CONDITIONAL_FIT": 1, "BORDERLINE_FIT": 2, "UNLIKELY_FIT": 3}
+        for row in rows:
+            best_rank = min(
+                rank[value["screening_status"]]
+                for value in plan["candidates"]
+                if value["model"]["id"] == row["model"]["id"]
+                and value["screening_status"] != "NOT_FEASIBLE"
+            )
+            self.assertEqual(rank[row["screening_status"]], best_rank)
 
     def test_screening_tiers_are_distinct_and_explainable(self):
         plan = build_capacity_plan(self.intake)
-        rows = [row for row in plan["candidates"] if row["candidate_id"] in plan["screening_summary"]["shortlist_candidate_ids"]]
+        rows = plan["candidates"]
         statuses = {row["screening_status"] for row in rows}
         self.assertIn("STRONG_FIT", statuses)
         self.assertTrue(statuses & {"BORDERLINE_FIT", "UNLIKELY_FIT"})
@@ -107,6 +112,7 @@ class CapacityPlannerTests(unittest.TestCase):
         catalogs = load_catalogs()
         self.assertTrue(all(item["specification_provenance"]["type"] == "VENDOR_REPORTED" for item in catalogs["hardware"]["items"]))
         self.assertEqual(catalogs["evidence"]["items"][0]["provenance"], "SRH_MEASURED")
+        self.assertEqual(catalogs["hardware"]["version"], "1.1.0")
 
     def test_performance_coefficients_are_explicit_srh_assumptions(self):
         catalogs = load_catalogs()
@@ -122,6 +128,34 @@ class CapacityPlannerTests(unittest.TestCase):
         self.assertGreater(moe["performance_projection"]["architecture_adjustment"]["effective_decode_weights_gib"], dense["performance_projection"]["architecture_adjustment"]["effective_decode_weights_gib"])
         self.assertGreater(moe["performance_projection"]["metrics"]["end_to_end_p95_ms"]["point"], dense["performance_projection"]["metrics"]["end_to_end_p95_ms"]["point"])
         self.assertEqual(moe["performance_projection"]["calibration_status"], "UNCALIBRATED_FOR_THIS_HARDWARE_MODEL_PAIR")
+
+    def test_h100_dense_projection_scales_a_vendor_interactive_anchor(self):
+        intake = copy.deepcopy(self.intake)
+        intake["exploration"]["model_ids"] = ["dense-14b-class"]
+        intake["exploration"]["weight_bits"] = [4]
+        plan = build_capacity_plan(intake)
+        row = next(value for value in plan["candidates"] if value["hardware"]["id"] == "nvidia-h100-sxm-80gb")
+        projection = row["performance_projection"]
+        self.assertEqual(projection["projection_method"], "VENDOR_INTERACTIVE_ANCHOR_SCALED")
+        self.assertEqual(projection["assumption_provenance"], "VENDOR_BENCHMARK_SCALED")
+        self.assertEqual(projection["metric_basis"]["decode"], "VENDOR_INTERACTIVE_DECODE_ANCHOR_SCALED")
+        self.assertEqual(projection["metric_basis"]["ttfa"], "SRH_PREFILL_HEURISTIC")
+        self.assertGreater(projection["metrics"]["answer_tokens_per_second_per_user"]["point"], 100)
+        self.assertLess(projection["metrics"]["end_to_end_p95_ms"]["point"], 20000)
+
+    def test_continuous_batching_retains_per_request_rate(self):
+        intake = copy.deepcopy(self.intake)
+        intake["traffic"]["concurrent_users"] = 1
+        intake["exploration"]["model_ids"] = ["dense-8b-class"]
+        intake["exploration"]["weight_bits"] = [4]
+        single = build_capacity_plan(intake)
+        intake["traffic"]["concurrent_users"] = 4
+        concurrent = build_capacity_plan(intake)
+        pick = lambda plan: next(value for value in plan["candidates"] if value["hardware"]["id"] == "nvidia-h100-sxm-80gb")
+        single_rate = pick(single)["performance_projection"]["metrics"]["answer_tokens_per_second_per_user"]["point"]
+        concurrent_rate = pick(concurrent)["performance_projection"]["metrics"]["answer_tokens_per_second_per_user"]["point"]
+        self.assertGreater(concurrent_rate, single_rate * 0.85)
+        self.assertLess(concurrent_rate, single_rate)
 
 
 class QuietCapacityHandler(CapacityHandler):

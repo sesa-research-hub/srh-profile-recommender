@@ -18,7 +18,7 @@ from ..workloads.contract import validate_contract
 from ..workloads.planner import build_plan
 
 
-PLANNER_VERSION = "0.2.0"
+PLANNER_VERSION = "0.3.0"
 INTAKE_SCHEMA = "srh.client-intake.v1"
 OUTPUT_SCHEMA = "srh.capacity-plan.v1"
 GIB = 1024 ** 3
@@ -227,17 +227,43 @@ def _estimate_candidate(hardware: dict[str, Any], model: dict[str, Any], bits: i
     if max_power_w is not None and hardware["power_w"] > max_power_w:
         blockers.append("POWER_LIMIT_EXCEEDED")
     assumptions = hardware["performance_assumptions"]
-    batching_gain = 1 + 0.5 * math.log2(max(1, concurrency))
-    aggregate_decode_tps = hardware["memory_bandwidth_gbps"] / max(effective_decode_weights_gib, 0.1) * assumptions["decode_efficiency"] * batching_gain
-    per_user_decode_tps = aggregate_decode_tps / concurrency
-    prefill_tps = aggregate_decode_tps * assumptions["prefill_multiplier"]
-    pressure = 1 + 0.12 * (concurrency - 1)
-    ttfa_ms = assumptions["fixed_latency_ms"] + req["input_tokens"]["p95"] / max(prefill_tps, 1) * 1000 * pressure
+    anchor = assumptions.get("interactive_decode_anchor")
+    if anchor and not is_moe:
+        precision_factor = float(anchor["precision_factors"].get(str(bits), 1.0))
+        parameter_ratio = float(anchor["active_parameters_b"]) / model["active_parameters_b"]
+        single_user_decode_tps = (
+            float(anchor["tokens_per_second_per_request"])
+            * parameter_ratio ** float(anchor["parameter_scaling_exponent"])
+            * precision_factor
+        )
+        projection_method = "VENDOR_INTERACTIVE_ANCHOR_SCALED"
+        projection_source = {"name": anchor["source"], "url": anchor["url"]}
+        uncertainty = 0.30
+    else:
+        single_user_decode_tps = (
+            hardware["memory_bandwidth_gbps"]
+            / max(effective_decode_weights_gib, 0.1)
+            * assumptions["decode_efficiency"]
+        )
+        projection_method = "MEMORY_ROOFLINE_HEURISTIC"
+        projection_source = None
+        uncertainty = 0.60 if is_moe else 0.45
+    # Continuous batching does not split a fixed single-request token rate by
+    # the number of users. Requests advance together in a batch until the GPU
+    # saturates. Model the measured per-request retention at concurrency 4 and
+    # expose aggregate throughput as per-user throughput × active users.
+    concurrency_steps = math.log2(max(1, concurrency)) / 2
+    decode_retention = assumptions["decode_concurrency_retention_at_4"] ** concurrency_steps
+    prefill_retention = assumptions["prefill_concurrency_retention_at_4"] ** concurrency_steps
+    per_user_decode_tps = single_user_decode_tps * decode_retention
+    aggregate_decode_tps = per_user_decode_tps * concurrency
+    per_request_prefill_tps = (
+        single_user_decode_tps
+        * assumptions["prefill_multiplier"]
+        * prefill_retention
+    )
+    ttfa_ms = assumptions["fixed_latency_ms"] + req["input_tokens"]["p95"] / max(per_request_prefill_tps, 1) * 1000
     e2e_ms = ttfa_ms + req["output_tokens"]["p95"] / max(per_user_decode_tps, 0.1) * 1000
-    # MoE execution varies more across runtimes because expert routing and
-    # sparse kernels are implementation-dependent. Preserve that uncertainty
-    # in the decision band instead of hiding it behind a single point value.
-    uncertainty = 0.60 if is_moe else 0.45
     metrics = {
         "ttfa_p95_ms": {**_metric_range(ttfa_ms, uncertainty), "unit": "ms", "provenance": "ESTIMATED"},
         "end_to_end_p95_ms": {**_metric_range(e2e_ms, uncertainty), "unit": "ms", "provenance": "ESTIMATED"},
@@ -316,10 +342,27 @@ def _estimate_candidate(hardware: dict[str, Any], model: dict[str, Any], bits: i
             "provenance": "CALCULATED",
         },
         "performance_projection": {
-            "confidence": "LOW",
+            "confidence": "MEDIUM_LOW" if anchor and not is_moe else "LOW",
             "uncertainty_fraction": uncertainty,
-            "assumption_provenance": assumptions["provenance"],
-            "calibration_status": "UNCALIBRATED_FOR_THIS_HARDWARE_MODEL_PAIR",
+            "assumption_provenance": "VENDOR_BENCHMARK_SCALED" if anchor and not is_moe else assumptions["provenance"],
+            "calibration_status": "SCALED_FROM_VENDOR_INTERACTIVE_ANCHOR" if anchor and not is_moe else "UNCALIBRATED_FOR_THIS_HARDWARE_MODEL_PAIR",
+            "projection_method": projection_method,
+            "projection_source": projection_source,
+            "metric_basis": {
+                "decode": (
+                    "VENDOR_INTERACTIVE_DECODE_ANCHOR_SCALED"
+                    if anchor and not is_moe
+                    else "MEMORY_ROOFLINE_SRH_HEURISTIC"
+                ),
+                "ttfa": "SRH_PREFILL_HEURISTIC",
+                "memory": "ARCHETYPE_CAPACITY_CALCULATION",
+            },
+            "concurrency_model": {
+                "single_user_decode_tps": round(single_user_decode_tps, 3),
+                "decode_retention_fraction": round(decode_retention, 4),
+                "per_request_prefill_tps": round(per_request_prefill_tps, 3),
+                "basis": "continuous batching per-request retention",
+            },
             "architecture_adjustment": {
                 "routing_overhead_multiplier": routing_overhead,
                 "inactive_weight_traffic_fraction": inactive_weight_traffic_fraction,
@@ -342,7 +385,17 @@ def _shortlist(candidates: list[dict[str, Any]], size: int = 3) -> list[str]:
     model_ids = list(dict.fromkeys(candidate["model"]["id"] for candidate in eligible))
     for model_id in model_ids:
         options = [candidate for candidate in eligible if candidate["model"]["id"] == model_id]
-        candidate = next((value for value in options if value["hardware"]["id"] not in hardware_seen), options[0])
+        best = options[0]
+        # Hardware diversity is useful only among genuinely comparable options.
+        # Never downgrade a model class to a weaker screening tier merely to
+        # display another device in the shortlist.
+        comparable_diverse = next((
+            value for value in options
+            if value["hardware"]["id"] not in hardware_seen
+            and value["screening_status"] == best["screening_status"]
+            and value["screening_score"] >= best["screening_score"] - 15
+        ), None)
+        candidate = comparable_diverse or best
         selected.append(candidate)
         hardware_seen.add(candidate["hardware"]["id"])
         if len(selected) == size:
@@ -404,14 +457,15 @@ def build_capacity_plan(intake: dict[str, Any], catalogs: dict[str, dict[str, An
             "version": PLANNER_VERSION,
             "weight_memory": "total_parameters × weight_bits / 8 × 1.08 planning overhead",
             "kv_cache": "2 × layers × KV heads × head dimension × 2 bytes × p95 context × concurrency",
-            "decode": "memory bandwidth / effective active weight traffic × SRH heuristic efficiency × batching gain; sparse models include explicit routing and resident-expert traffic allowances",
-            "prefill": "projected aggregate decode × SRH heuristic prefill multiplier",
-            "range": "dense point estimate ±45%; sparse MoE point estimate ±60%",
-            "provenance": "SRH_HEURISTIC",
+            "decode": "vendor interactive anchor when available; otherwise memory bandwidth / effective active weight traffic × explicit efficiency",
+            "concurrency": "continuous-batching per-request retention; aggregate throughput = per-request rate × concurrent users",
+            "prefill": "single-request decode × explicit prefill multiplier × concurrency retention",
+            "range": "vendor-anchored dense estimate ±30%; unanchored dense ±45%; sparse MoE ±60%",
+            "provenance": "MIXED_VENDOR_ANCHOR_AND_SRH_HEURISTIC",
         },
         "decision_boundary": {
             "status": "PRELIMINARY_CAPACITY_SCREENING",
-            "message": "The shortlist uses calculated capacity and low-confidence performance estimates. It is not a deployment recommendation.",
+            "message": "The shortlist uses calculated capacity and mixed-confidence performance projections. It is not a deployment recommendation.",
             "measured_evidence_required": True,
             "quality_is_not_simulated": True,
             "compatible_with_profile_recommender": False,

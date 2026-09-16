@@ -20,6 +20,9 @@ results to PDF. No client documents are uploaded by this interface. After labora
 tests, the same page can import a candidate manifest and observed evidence JSON files
 to run the measured Deployment Recommender locally.
 
+See [`docs/ESTIMATOR-METHODOLOGY.md`](../../docs/ESTIMATOR-METHODOLOGY.md) for the
+equations, benchmark anchors, concurrency treatment and decision boundary.
+
 The measured section provides separate selectors for the first two evidence files,
 plus an optional multi-file selector. **Load measured Qwen demo** loads the three
 observed GB10 profiles from the first SRH campaign together with their original
@@ -87,11 +90,20 @@ python3 -m srh.capacity.planner \
 3. **Capacity screening** calculates weight, KV-cache and runtime-reserve memory.
    Hard memory, context and power blockers eliminate impossible combinations.
 4. **Performance projection** produces a broad planning range using hardware
-   bandwidth, active model parameters, concurrency and explicit SRH heuristic
-   coefficients. Its confidence is `LOW` until comparable measurements calibrate it.
+   bandwidth, active model parameters and explicit concurrency retention. When a
+   comparable interactive vendor benchmark exists, the planner scales that anchor by
+   active model size and precision and identifies the source in every candidate.
+   Other combinations remain `LOW`-confidence memory-roofline heuristics.
    Candidates receive a benchmark priority (high, conditional, low or unlikely),
    or are marked infeasible, from hard gates plus conservative, point and
    optimistic uncertainty bands. This is not a production-readiness label.
+
+The concurrency calculation models continuous batching: each request retains a
+measured or assumed fraction of its single-request decode rate, while aggregate
+throughput is the per-request rate multiplied by concurrent users. It does not divide
+single-request performance by user count. H100 dense projections are currently tied
+to NVIDIA's published Llama 3 8B interactive INT4/FP8/FP16 measurements; extrapolated
+model sizes remain planning estimates, not measured checkpoints.
 5. **Candidate generation** selects up to eight feasible candidates, preferring
    every selected model archetype first and hardware diversity where possible. The
    meeting UI also exposes the full candidate matrix and the reason for exclusions.
