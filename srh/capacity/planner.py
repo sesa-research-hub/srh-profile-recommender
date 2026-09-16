@@ -18,7 +18,7 @@ from ..workloads.contract import validate_contract
 from ..workloads.planner import build_plan
 
 
-PLANNER_VERSION = "0.1.0"
+PLANNER_VERSION = "0.2.0"
 INTAKE_SCHEMA = "srh.client-intake.v1"
 OUTPUT_SCHEMA = "srh.capacity-plan.v1"
 GIB = 1024 ** 3
@@ -198,6 +198,20 @@ def _estimate_candidate(hardware: dict[str, Any], model: dict[str, Any], bits: i
     context_max = req["input_tokens"]["max"] + req["output_tokens"]["max"]
     weights_gib = model["total_parameters_b"] * 1e9 * bits / 8 / GIB * 1.08
     active_weights_gib = model["active_parameters_b"] * 1e9 * bits / 8 / GIB
+    # Sparse models do not behave exactly like a dense model with the same
+    # active parameter count. Routing, expert dispatch and traffic from the
+    # resident expert set depend heavily on kernels and topology. This small,
+    # explicit surcharge prevents a MoE archetype from receiving an identical
+    # projection to a dense archetype while keeping the estimate conservative
+    # enough for shortlist screening. It is not a measured model coefficient.
+    is_moe = model["architecture"] == "mixture-of-experts"
+    inactive_weights_gib = max(0.0, weights_gib / 1.08 - active_weights_gib)
+    routing_overhead = 1.15 if is_moe else 1.0
+    inactive_weight_traffic_fraction = 0.02 if is_moe else 0.0
+    effective_decode_weights_gib = (
+        active_weights_gib * routing_overhead
+        + inactive_weights_gib * inactive_weight_traffic_fraction
+    )
     kv_bytes_per_token = 2 * model["layers"] * model["kv_heads"] * model["head_dim"] * 2
     kv_gib = kv_bytes_per_token * context_p95 * concurrency / GIB
     runtime_gib = max(4.0, weights_gib * 0.12)
@@ -214,13 +228,16 @@ def _estimate_candidate(hardware: dict[str, Any], model: dict[str, Any], bits: i
         blockers.append("POWER_LIMIT_EXCEEDED")
     assumptions = hardware["performance_assumptions"]
     batching_gain = 1 + 0.5 * math.log2(max(1, concurrency))
-    aggregate_decode_tps = hardware["memory_bandwidth_gbps"] / max(active_weights_gib, 0.1) * assumptions["decode_efficiency"] * batching_gain
+    aggregate_decode_tps = hardware["memory_bandwidth_gbps"] / max(effective_decode_weights_gib, 0.1) * assumptions["decode_efficiency"] * batching_gain
     per_user_decode_tps = aggregate_decode_tps / concurrency
     prefill_tps = aggregate_decode_tps * assumptions["prefill_multiplier"]
     pressure = 1 + 0.12 * (concurrency - 1)
     ttfa_ms = assumptions["fixed_latency_ms"] + req["input_tokens"]["p95"] / max(prefill_tps, 1) * 1000 * pressure
     e2e_ms = ttfa_ms + req["output_tokens"]["p95"] / max(per_user_decode_tps, 0.1) * 1000
-    uncertainty = 0.45
+    # MoE execution varies more across runtimes because expert routing and
+    # sparse kernels are implementation-dependent. Preserve that uncertainty
+    # in the decision band instead of hiding it behind a single point value.
+    uncertainty = 0.60 if is_moe else 0.45
     metrics = {
         "ttfa_p95_ms": {**_metric_range(ttfa_ms, uncertainty), "unit": "ms", "provenance": "ESTIMATED"},
         "end_to_end_p95_ms": {**_metric_range(e2e_ms, uncertainty), "unit": "ms", "provenance": "ESTIMATED"},
@@ -302,6 +319,13 @@ def _estimate_candidate(hardware: dict[str, Any], model: dict[str, Any], bits: i
             "confidence": "LOW",
             "uncertainty_fraction": uncertainty,
             "assumption_provenance": assumptions["provenance"],
+            "calibration_status": "UNCALIBRATED_FOR_THIS_HARDWARE_MODEL_PAIR",
+            "architecture_adjustment": {
+                "routing_overhead_multiplier": routing_overhead,
+                "inactive_weight_traffic_fraction": inactive_weight_traffic_fraction,
+                "effective_decode_weights_gib": round(effective_decode_weights_gib, 3),
+                "provenance": "SRH_HEURISTIC",
+            },
             "metrics": metrics,
             "provenance": "ESTIMATED",
             "quality": "NOT_SIMULATED_MEASUREMENT_REQUIRED",
@@ -380,9 +404,9 @@ def build_capacity_plan(intake: dict[str, Any], catalogs: dict[str, dict[str, An
             "version": PLANNER_VERSION,
             "weight_memory": "total_parameters × weight_bits / 8 × 1.08 planning overhead",
             "kv_cache": "2 × layers × KV heads × head dimension × 2 bytes × p95 context × concurrency",
-            "decode": "memory bandwidth / active weight size × SRH heuristic efficiency × batching gain",
+            "decode": "memory bandwidth / effective active weight traffic × SRH heuristic efficiency × batching gain; sparse models include explicit routing and resident-expert traffic allowances",
             "prefill": "projected aggregate decode × SRH heuristic prefill multiplier",
-            "range": "point estimate ±45%",
+            "range": "dense point estimate ±45%; sparse MoE point estimate ±60%",
             "provenance": "SRH_HEURISTIC",
         },
         "decision_boundary": {

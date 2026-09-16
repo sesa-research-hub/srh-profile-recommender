@@ -112,6 +112,17 @@ class CapacityPlannerTests(unittest.TestCase):
         catalogs = load_catalogs()
         self.assertTrue(all(item["performance_assumptions"]["provenance"] == "SRH_HEURISTIC" for item in catalogs["hardware"]["items"]))
 
+    def test_moe_projection_exposes_runtime_overhead_and_extra_uncertainty(self):
+        intake = copy.deepcopy(self.intake)
+        intake["exploration"]["model_ids"] = ["dense-3b-class", "moe-30b-3b-active-class"]
+        plan = build_capacity_plan(intake)
+        dense = next(row for row in plan["candidates"] if row["hardware"]["id"] == "nvidia-rtx-pro-6000-blackwell-96gb" and row["model"]["id"] == "dense-3b-class" and row["weight_bits"] == 4)
+        moe = next(row for row in plan["candidates"] if row["hardware"]["id"] == "nvidia-rtx-pro-6000-blackwell-96gb" and row["model"]["id"] == "moe-30b-3b-active-class" and row["weight_bits"] == 4)
+        self.assertGreater(moe["performance_projection"]["uncertainty_fraction"], dense["performance_projection"]["uncertainty_fraction"])
+        self.assertGreater(moe["performance_projection"]["architecture_adjustment"]["effective_decode_weights_gib"], dense["performance_projection"]["architecture_adjustment"]["effective_decode_weights_gib"])
+        self.assertGreater(moe["performance_projection"]["metrics"]["end_to_end_p95_ms"]["point"], dense["performance_projection"]["metrics"]["end_to_end_p95_ms"]["point"])
+        self.assertEqual(moe["performance_projection"]["calibration_status"], "UNCALIBRATED_FOR_THIS_HARDWARE_MODEL_PAIR")
+
 
 class QuietCapacityHandler(CapacityHandler):
     def log_message(self, fmt, *args):

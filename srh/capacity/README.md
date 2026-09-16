@@ -84,9 +84,9 @@ python3 -m srh.capacity.planner \
 4. **Performance projection** produces a broad planning range using hardware
    bandwidth, active model parameters, concurrency and explicit SRH heuristic
    coefficients. Its confidence is `LOW` until comparable measurements calibrate it.
-   Candidates are classified as strong, conditional, borderline, unlikely or
-   infeasible from hard gates plus conservative, point and optimistic uncertainty
-   bands.
+   Candidates receive a benchmark priority (high, conditional, low or unlikely),
+   or are marked infeasible, from hard gates plus conservative, point and
+   optimistic uncertainty bands. This is not a production-readiness label.
 5. **Candidate generation** selects up to eight feasible candidates, preferring
    every selected model archetype first and hardware diversity where possible. The
    meeting UI also exposes the full candidate matrix and the reason for exclusions.

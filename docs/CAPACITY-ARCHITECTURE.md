@@ -37,7 +37,9 @@ Scenario Builder → Application Adapter → Benchmark Harness
 - measured cross-hardware/model deployment comparison with license and cost gates.
 - local OpenAI-compatible model discovery and observed readiness tests;
 - sourced named-model reference simulations with a strict non-measured label;
-- uncertainty-band screening tiers with explicit capacity and SLO gates.
+- uncertainty-band benchmark priorities with explicit capacity and SLO gates;
+- separate sparse-model routing allowance and wider MoE uncertainty, both marked
+  as uncalibrated SRH heuristics.
 
 ## Existing measured layer
 
