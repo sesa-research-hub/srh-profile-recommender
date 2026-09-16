@@ -1,0 +1,82 @@
+{
+  "schema": "srh.hardware-catalog.v1",
+  "version": "1.0.0",
+  "updated_at": "2026-09-15",
+  "items": [
+    {
+      "id": "nvidia-gb10-128gb",
+      "name": "NVIDIA GB10 128 GB class",
+      "examples": ["NVIDIA DGX Spark", "ASUS Ascent GX10"],
+      "deployment_class": "desk",
+      "accelerator_count": 1,
+      "memory_gib": 128,
+      "memory_kind": "LPDDR5X coherent unified system memory",
+      "memory_bandwidth_gbps": 273,
+      "usable_memory_fraction": 0.78,
+      "power_w": 240,
+      "power_basis": "system power supply; GB10 TDP is 140 W",
+      "performance_assumptions": {
+        "provenance": "SRH_HEURISTIC",
+        "decode_efficiency": 0.42,
+        "prefill_multiplier": 55,
+        "fixed_latency_ms": 180
+      },
+      "specification_provenance": {
+        "type": "VENDOR_REPORTED",
+        "source": "NVIDIA DGX Spark User Guide",
+        "url": "https://docs.nvidia.com/dgx/dgx-spark/",
+        "checked_at": "2026-09-15"
+      }
+    },
+    {
+      "id": "nvidia-rtx-pro-6000-blackwell-96gb",
+      "name": "NVIDIA RTX PRO 6000 Blackwell 96 GB",
+      "examples": ["Professional AI workstation"],
+      "deployment_class": "workstation",
+      "accelerator_count": 1,
+      "memory_gib": 96,
+      "memory_kind": "GDDR7 ECC",
+      "memory_bandwidth_gbps": 1792,
+      "usable_memory_fraction": 0.88,
+      "power_w": 600,
+      "power_basis": "maximum GPU power; host system excluded",
+      "performance_assumptions": {
+        "provenance": "SRH_HEURISTIC",
+        "decode_efficiency": 0.25,
+        "prefill_multiplier": 70,
+        "fixed_latency_ms": 120
+      },
+      "specification_provenance": {
+        "type": "VENDOR_REPORTED",
+        "source": "NVIDIA RTX PRO 6000 Blackwell Workstation Edition specifications",
+        "url": "https://www.nvidia.com/products/workstations/professional-desktop-gpus/rtx-pro-6000/",
+        "checked_at": "2026-09-15"
+      }
+    },
+    {
+      "id": "nvidia-h100-sxm-80gb",
+      "name": "NVIDIA H100 SXM 80 GB",
+      "examples": ["HGX H100 server", "DGX H100 server"],
+      "deployment_class": "datacenter",
+      "accelerator_count": 1,
+      "memory_gib": 80,
+      "memory_kind": "HBM3",
+      "memory_bandwidth_gbps": 3350,
+      "usable_memory_fraction": 0.9,
+      "power_w": 700,
+      "power_basis": "maximum configurable GPU TDP; host system excluded",
+      "performance_assumptions": {
+        "provenance": "SRH_HEURISTIC",
+        "decode_efficiency": 0.2,
+        "prefill_multiplier": 90,
+        "fixed_latency_ms": 90
+      },
+      "specification_provenance": {
+        "type": "VENDOR_REPORTED",
+        "source": "NVIDIA H100 Tensor Core GPU specifications",
+        "url": "https://www.nvidia.com/data-center/h100/",
+        "checked_at": "2026-09-15"
+      }
+    }
+  ]
+}

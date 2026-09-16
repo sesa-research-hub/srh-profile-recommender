@@ -1,0 +1,64 @@
+{
+  "schema": "srh.model-archetype-catalog.v1",
+  "version": "1.0.0",
+  "updated_at": "2026-09-15",
+  "notice": "Planning archetypes are not named-model benchmarks or quality claims.",
+  "items": [
+    {
+      "id": "dense-8b-class",
+      "name": "Dense 8B class",
+      "description": "Compact model class for pilots and latency-sensitive assistants.",
+      "architecture": "dense",
+      "total_parameters_b": 8,
+      "active_parameters_b": 8,
+      "layers": 32,
+      "kv_heads": 8,
+      "head_dim": 128,
+      "maximum_context_tokens": 131072,
+      "supported_weight_bits": [4, 8, 16],
+      "metadata_provenance": "SRH_PLANNING_ARCHETYPE"
+    },
+    {
+      "id": "dense-32b-class",
+      "name": "Dense 32B class",
+      "description": "Mid-size model class for stronger document analysis and drafting.",
+      "architecture": "dense",
+      "total_parameters_b": 32,
+      "active_parameters_b": 32,
+      "layers": 64,
+      "kv_heads": 8,
+      "head_dim": 128,
+      "maximum_context_tokens": 131072,
+      "supported_weight_bits": [4, 8, 16],
+      "metadata_provenance": "SRH_PLANNING_ARCHETYPE"
+    },
+    {
+      "id": "dense-70b-class",
+      "name": "Dense 70B class",
+      "description": "Large dense model class; quality must be verified on the client scenario.",
+      "architecture": "dense",
+      "total_parameters_b": 70,
+      "active_parameters_b": 70,
+      "layers": 80,
+      "kv_heads": 8,
+      "head_dim": 128,
+      "maximum_context_tokens": 131072,
+      "supported_weight_bits": [4, 8],
+      "metadata_provenance": "SRH_PLANNING_ARCHETYPE"
+    },
+    {
+      "id": "moe-120b-12b-active-class",
+      "name": "MoE 120B / 12B active class",
+      "description": "Sparse model class with large resident weights and lower active compute per token.",
+      "architecture": "mixture-of-experts",
+      "total_parameters_b": 120,
+      "active_parameters_b": 12,
+      "layers": 48,
+      "kv_heads": 8,
+      "head_dim": 128,
+      "maximum_context_tokens": 131072,
+      "supported_weight_bits": [4, 8],
+      "metadata_provenance": "SRH_PLANNING_ARCHETYPE"
+    }
+  ]
+}

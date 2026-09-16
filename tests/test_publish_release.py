@@ -63,3 +63,17 @@ class PublishingTests(unittest.TestCase):
         api = FakeAPI(merged=True, conflict=True)
         with self.assertRaises(RuntimeError): self.run_publish(api)
         self.assertEqual(api.writes, [])
+
+    def test_custom_release_metadata_is_used(self):
+        api = FakeAPI()
+        mod.publish(
+            api, 'source', 'tree', 'PR body', 'Release body',
+            branch=mod.BRANCH, tag='v-next', pr_title='Next title',
+            release_name='Next release',
+        )
+        created_pr = next(data for method, path, data in api.writes if method == 'POST' and path == '/pulls')
+        created_ref = next(data for method, path, data in api.writes if method == 'POST' and path == '/git/refs')
+        created_release = next(data for method, path, data in api.writes if method == 'POST' and path == '/releases')
+        self.assertEqual(created_pr['title'], 'Next title')
+        self.assertEqual(created_ref['ref'], 'refs/tags/v-next')
+        self.assertEqual(created_release['name'], 'Next release')
