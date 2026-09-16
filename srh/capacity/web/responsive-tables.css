@@ -1,18 +1,46 @@
-.comparison-table {
+.comparison-table-scroll {
+  width: 100%;
+  overflow-x: auto;
+  overscroll-behavior-inline: contain;
+  border: 1px solid var(--line);
+  border-radius: 12px;
+  background: white;
+  scrollbar-width: thin;
+  scrollbar-color: #9bb5ad transparent;
+}
+
+.comparison-table-scroll:focus {
+  outline: 2px solid rgba(49, 213, 150, .45);
+  outline-offset: 2px;
+}
+
+.comparison-table-scroll .comparison-table {
+  width: 100%;
+  min-width: 1040px;
+  margin: 0;
+  border-radius: 0;
   table-layout: fixed;
 }
 
-.comparison-table th:nth-child(1) { width: 18%; }
-.comparison-table th:nth-child(2) { width: 14%; }
-.comparison-table th:nth-child(3) { width: 12%; }
-.comparison-table th:nth-child(4) { width: 16%; }
-.comparison-table th:nth-child(5) { width: 22%; }
-.comparison-table th:nth-child(6) { width: 18%; }
+.comparison-table th:nth-child(1) { width: 180px; }
+.comparison-table th:nth-child(2) { width: 145px; }
+.comparison-table th:nth-child(3) { width: 125px; }
+.comparison-table th:nth-child(4) { width: 165px; }
+.comparison-table th:nth-child(5) { width: 235px; }
+.comparison-table th:nth-child(6) { width: 190px; }
 
 .comparison-table td {
-  overflow-wrap: break-word;
+  overflow-wrap: normal;
   word-break: normal;
   hyphens: none;
+}
+
+.comparison-table th {
+  background: #fff;
+}
+
+.comparison-table tbody tr:hover td {
+  background: #f8fbfa;
 }
 
 .priority-cell small {
@@ -23,81 +51,29 @@
 }
 
 @media (max-width: 900px) {
-  .comparison-table,
-  .comparison-table tbody,
-  .comparison-table tr,
-  .comparison-table td {
-    display: block;
-    width: 100%;
+  .comparison-table-scroll {
+    box-shadow: inset -14px 0 14px -16px rgba(16, 42, 43, .7);
   }
 
-  .comparison-table {
-    background: transparent;
-    table-layout: auto;
+  .comparison-table-scroll .comparison-table {
+    min-width: 980px;
   }
 
-  .comparison-table thead {
-    display: none;
-  }
-
-  .comparison-table tbody {
-    display: grid;
-    gap: 14px;
-  }
-
-  .comparison-table tr {
-    overflow: hidden;
+  .comparison-table th:first-child,
+  .comparison-table td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
     background: white;
-    border: 1px solid var(--line);
-    border-radius: 12px;
-    box-shadow: 0 4px 16px rgba(16, 42, 43, .04);
+    box-shadow: 8px 0 12px -12px rgba(16, 42, 43, .8);
   }
 
-  .comparison-table td {
-    display: grid;
-    grid-template-columns: minmax(130px, 34%) minmax(0, 1fr);
-    gap: 14px;
-    padding: 10px 14px;
-    border-bottom: 1px solid var(--line);
-    font-size: 13px;
+  .comparison-table th:first-child {
+    z-index: 2;
   }
 
-  .comparison-table td:last-child {
-    border-bottom: 0;
-  }
-
-  .comparison-table td::before {
-    content: attr(data-label);
-    color: var(--muted);
-    font-size: 10px;
-    font-weight: 750;
-    letter-spacing: .06em;
-    text-transform: uppercase;
-  }
-
-  .comparison-table .metric-range {
-    white-space: normal;
-  }
-
-  .comparison-table .priority-cell .badge {
-    width: max-content;
-    max-width: 100%;
-  }
-}
-
-@media (max-width: 540px) {
-  .comparison-table td {
-    display: block;
-    padding: 11px 13px;
-  }
-
-  .comparison-table td::before {
-    display: block;
-    margin-bottom: 5px;
-  }
-
-  .comparison-table .badge {
-    white-space: normal;
+  .comparison-table tbody tr:hover td:first-child {
+    background: #f8fbfa;
   }
 
   .buttons {
@@ -106,14 +82,19 @@
 }
 
 @media print {
-  .comparison-table {
-    display: table;
+  .comparison-table-scroll {
+    overflow: visible;
+    border: 0;
+  }
+
+  .comparison-table-scroll .comparison-table {
+    min-width: 0;
     table-layout: fixed;
   }
 
-  .comparison-table thead { display: table-header-group; }
-  .comparison-table tbody { display: table-row-group; }
-  .comparison-table tr { display: table-row; box-shadow: none; }
-  .comparison-table td { display: table-cell; width: auto; }
-  .comparison-table td::before { display: none; }
+  .comparison-table th:first-child,
+  .comparison-table td:first-child {
+    position: static;
+    box-shadow: none;
+  }
 }
