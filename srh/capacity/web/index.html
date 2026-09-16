@@ -3,22 +3,31 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SRH Capacity Planner</title>
+  <title>SRH Private AI Recommender</title>
   <link rel="stylesheet" href="/app.css">
   <link rel="stylesheet" href="/measured.css">
   <link rel="stylesheet" href="/responsive-tables.css">
+  <link rel="stylesheet" href="/workflow.css">
 </head>
 <body>
   <header class="hero">
     <div class="hero-inner">
       <div>
         <p class="eyebrow">SESA RESEARCH HUB</p>
-        <h1>Private AI Capacity Planner</h1>
-        <p class="hero-copy">Dal bisogno espresso dal cliente a una shortlist di configurazioni da misurare.</p>
+        <h1>Private AI Recommender</h1>
+        <p class="hero-copy">Dai requisiti del cliente a una decisione verificabile e a un dossier consegnabile.</p>
       </div>
-      <div class="stage"><span>1</span> Discovery <b>→</b> <span>2</span> Stima <b>→</b> <span>3</span> Test <b>→</b> <span>4</span> Decisione</div>
+      <div class="stage"><span>1</span> Discovery <b>→</b> <span>2</span> Stima <b>→</b> <span>3</span> Test <b>→</b> <span>4</span> Decisione <b>→</b> <span>5</span> Report</div>
     </div>
   </header>
+
+  <nav class="workflow-nav" aria-label="Workflow assessment">
+    <button type="button" data-workflow-step="discovery" data-workflow-target="#intake-form" data-state="active"><span>1</span>Discovery</button>
+    <button type="button" data-workflow-step="capacity" data-workflow-target="#results" data-state="locked"><span>2</span>Capacity Planning</button>
+    <button type="button" data-workflow-step="benchmark" data-workflow-target="#benchmark-workflow" data-state="locked"><span>3</span>Benchmark Lab</button>
+    <button type="button" data-workflow-step="recommendation" data-workflow-target="#recommendation-workflow" data-state="locked"><span>4</span>Recommendation</button>
+    <button type="button" data-workflow-step="report" data-workflow-target="#report-workflow" data-state="locked"><span>5</span>Report cliente</button>
+  </nav>
 
   <main>
     <section class="intro">
@@ -88,17 +97,19 @@
       <div class="action-row"><div><strong>Nessun documento viene caricato.</strong><span> Questa fase raccoglie soltanto requisiti e assunzioni.</span></div><button class="button primary" type="submit">Calcola shortlist</button></div>
     </form>
 
-    <section id="results" class="results hidden" aria-live="polite">
-      <div class="results-head"><div><p class="eyebrow dark">RISULTATO PRELIMINARE</p><h2>Shortlist da verificare sul caso cliente</h2></div><div class="buttons"><button id="download-json" class="button secondary">Scarica dossier JSON</button><button id="print" class="button secondary">Stampa / PDF</button></div></div>
+    <section id="results" class="results workflow-section hidden" aria-live="polite">
+      <div class="results-head"><div><p class="eyebrow dark">FASE 2 · CAPACITY PLANNING</p><h2>Shortlist da verificare sul caso cliente</h2></div><div class="buttons"><button id="download-json" class="button secondary">Scarica piano JSON</button><button id="print" class="button secondary">Componi report</button></div></div>
       <div class="notice"><strong>Stima di pianificazione.</strong> Capacità calcolata e prestazioni stimate non sostituiscono le misure. La qualità verrà valutata sui capitolati del cliente.</div>
       <div id="translated" class="stats"></div>
       <div id="shortlist"></div>
       <div id="model-coverage"></div>
       <details class="candidate-matrix"><summary>Vedi tutte le combinazioni analizzate</summary><div id="candidate-matrix"></div></details>
       <div class="result-grid"><div class="panel compact"><h3>Piano di prova</h3><div id="test-plan"></div></div><div class="panel compact"><h3>Assunzioni e copertura</h3><div id="assumptions"></div></div></div>
-      <details class="panel measured">
-        <summary>Misura modelli reali e confrontali con gli obiettivi</summary>
-        <p>Il planner rileva i runtime OpenAI-compatible già attivi sul DGX. Il test locale misura una breve estrazione documentale e mostra separatamente avvio, lunghezza realmente prodotta, velocità e qualità. I modelli di riferimento restano simulazioni dichiarate.</p>
+    </section>
+
+    <section id="benchmark-workflow" class="results workflow-section hidden" aria-live="polite">
+      <div class="workflow-heading"><div class="workflow-title"><span class="phase-number">3</span><div><p class="eyebrow dark">BENCHMARK LAB</p><h2>Misura i runtime e conserva la provenienza</h2><p>Il test locale produce readiness osservata. I modelli non installati restano simulazioni dichiarate e non possono diventare una recommendation.</p></div></div></div>
+      <div class="panel measured">
         <div class="runtime-box">
           <div class="grid two">
             <label>Modello da valutare<select id="runtime-model-select"><option value="">Rilevamento in corso…</option></select></label>
@@ -110,7 +121,13 @@
           <div class="buttons"><button id="refresh-local-models" class="button secondary" type="button">Aggiorna modelli locali</button><button id="run-model-test" class="button primary" type="button">Avvia valutazione</button></div>
           <div id="local-test-result"></div>
         </div>
-        <details class="json-import">
+      </div>
+    </section>
+
+    <section id="recommendation-workflow" class="results workflow-section hidden" aria-live="polite">
+      <div class="workflow-heading"><div class="workflow-title"><span class="phase-number">4</span><div><p class="eyebrow dark">DEPLOYMENT RECOMMENDATION</p><h2>Confronta solo evidenze realmente comparabili</h2><p>Qualità e SLO sono gate obbligatori. Licenze e costi restano metadati revisionati da persone, con provenienza dichiarata.</p></div></div><div id="workflow-evidence-status" class="workflow-status"></div></div>
+      <div id="measured-result"></div>
+      <details class="panel json-import">
           <summary>Opzione avanzata: importa manifest ed evidenze JSON</summary>
           <p>Usa questa modalità per campagne già eseguite su altri sistemi o per riprodurre la precedente campagna GB10.</p>
           <div class="demo-row"><div class="buttons"><button id="load-measured-demo" class="button secondary" type="button">Carica demo con le misure Qwen precedenti</button><button id="download-demo-manifest" class="button secondary" type="button">Scarica manifest demo</button></div><span id="measured-files">Nessun pacchetto caricato.</span></div>
@@ -122,13 +139,24 @@
             <label>Altre evidenze JSON <small>(facoltative)</small><input id="extra-evidence-files" class="evidence-file" type="file" accept="application/json,.json" multiple></label>
           </div>
           <div class="measured-action"><button id="evaluate-measured" class="button primary" type="button">Valuta evidenze importate</button></div>
-          <div id="measured-result"></div>
-        </details>
       </details>
+    </section>
+
+    <section id="report-workflow" class="results workflow-section hidden" aria-live="polite">
+      <div class="workflow-heading"><div class="workflow-title"><span class="phase-number">5</span><div><p class="eyebrow dark">DOSSIER CLIENTE</p><h2>Componi il report di assessment</h2><p>Il documento raccoglie requisiti, simulazioni, misure, decisione e limiti. Può diventare la base tecnica per un progetto affidato a SRH o a un fornitore terzo.</p></div></div></div>
+      <div id="report-readiness" class="report-readiness preliminary"></div>
+      <div class="report-controls">
+        <label>Preparato da<input id="report-prepared-by" value="Sesa Research Hub"></label>
+        <label>Destinazione del dossier<select id="report-delivery"><option>Decisione del cliente — fornitore da definire</option><option>Proposta di prosecuzione con Sesa Research Hub</option><option>Capitolato tecnico per fornitore terzo</option></select></label>
+        <label class="wide">Nota del consulente<textarea id="report-notes" placeholder="Contesto commerciale, vincoli emersi e osservazioni concordate con il cliente."></textarea></label>
+      </div>
+      <div class="report-actions-row"><button id="download-session" class="button secondary" type="button" disabled>Scarica dossier dati JSON</button><button id="compose-report" class="button secondary" type="button">Aggiorna anteprima</button><button id="save-report-pdf" class="button primary" type="button" disabled>Stampa / salva PDF</button></div>
+      <article id="consulting-report" class="consulting-report report-empty"><p>Calcola la shortlist per comporre il dossier.</p></article>
     </section>
     <div id="error" class="error hidden"></div>
   </main>
-  <footer>SRH Profile Recommender · Capacity Planner 0.3 · Le decisioni finali richiedono evidenze misurate.</footer>
+  <footer>SRH Private AI Recommender · Dalle esigenze alla decision evidence · Le decisioni finali richiedono evidenze misurate.</footer>
   <script src="/app.js"></script>
+  <script src="/workflow.js"></script>
 </body>
 </html>

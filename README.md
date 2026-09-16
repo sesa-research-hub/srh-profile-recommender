@@ -7,10 +7,11 @@ an explainable decision about an AI runtime configuration. It checks quality and
 service objectives before ranking eligible alternatives, and explicitly reports
 when no tested configuration is suitable or evidence is insufficient.
 
-The Capacity Planner now adds the missing upstream step: during a client meeting it
-captures business-readable requirements, calculates feasibility, projects broad
-performance ranges and produces a shortlist plus benchmark plan. Estimates remain
-separate from observed evidence.
+The client-meeting interface now joins Discovery, Capacity Planning, Benchmark Lab,
+Deployment Recommendation and an A4 consulting report. It captures business-readable
+requirements, calculates feasibility, projects broad performance ranges, preserves
+observed evidence and produces a dossier that can be handed to SRH or another supplier.
+Estimates remain separate from observed evidence throughout the report.
 
 The product is intended for multiple model families. The initial integration and
 validation use Docker/vLLM; Qwen is the first test backend. Model weights and
@@ -29,6 +30,8 @@ inference implementations remain external to the SRH decision engine.
 - A Deployment Recommender for controlled, observed comparisons across hardware and exact models.
 - Local model discovery and observed readiness benchmarking from the client-meeting UI.
 - Sourced named-model reference simulations kept separate from local measurements.
+- A client-ready PDF composition with evidence status, shortlist, observed results,
+  recommendation, next actions, limitations and integrity hashes.
 
 Runtime-profile tuning deliberately requires the **same model/snapshot, image and
 hardware**. The deployment layer can compare different observed systems only when
@@ -53,7 +56,7 @@ python3 -m srh.capacity.server --open
 ```
 
 It runs on `http://127.0.0.1:8765`, uploads no documents and persists nothing unless
-the user downloads the capacity dossier. See the
+the user downloads the assessment session or saves the composed report to PDF. See the
 [Capacity Planner guide](srh/capacity/README.md) and the
 [workload-to-deployment architecture](docs/CAPACITY-ARCHITECTURE.md).
 
