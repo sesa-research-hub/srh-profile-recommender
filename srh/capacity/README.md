@@ -26,6 +26,37 @@ observed GB10 profiles from the first SRH campaign together with their original
 Workload Contract and the bundled test manifest. This demonstrates the complete UI
 flow without presenting those measurements as evidence for the current client.
 
+## Test a model already running on the machine
+
+After calculating the client shortlist, open **Test real models and build the
+recommendation**. The interface discovers OpenAI-compatible endpoints bound to
+localhost, currently including the vLLM endpoint on port `18300`. For each selected
+model choose:
+
+- quick, representative or stress input profile;
+- one, three or five repetitions;
+- one to eight concurrent users.
+
+The readiness test sends a synthetic Italian construction-tender scenario sized from
+the current Workload Contract. It observes first-answer latency, complete latency,
+answer throughput, request errors and deterministic extraction/citation quality. Runs
+with the same profile, concurrency and repetition count form one comparable session;
+quality and every SLO gate are applied before latency ranking.
+
+This is real local inference evidence for the synthetic readiness scenario. It is not
+client acceptance evidence: the final campaign still requires client documents,
+expert-validated ground truth, OCR/retrieval components and the exact application.
+Only loopback HTTP endpoints are accepted by the local runner.
+
+## Simulate a named model not installed
+
+The same selector includes DeepSeek V4 Flash/Pro and Mistral Small 4/Large 3 from a
+versioned reference catalog. Their parameter counts, context, license labels and
+published benchmark notes link to vendor sources. Selecting one runs the SRH capacity
+projection against the chosen hardware. The UI labels this output as a reference
+simulation: vendor benchmarks on unrelated tasks never become SRH measurements or a
+prediction of client quality.
+
 Bundled files:
 
 - `examples/qwen-measured-demo-manifest.json`;
@@ -53,6 +84,9 @@ python3 -m srh.capacity.planner \
 4. **Performance projection** produces a broad planning range using hardware
    bandwidth, active model parameters, concurrency and explicit SRH heuristic
    coefficients. Its confidence is `LOW` until comparable measurements calibrate it.
+   Candidates are classified as strong, conditional, borderline, unlikely or
+   infeasible from hard gates plus conservative, point and optimistic uncertainty
+   bands.
 5. **Candidate generation** selects up to eight feasible candidates, preferring
    every selected model archetype first and hardware diversity where possible. The
    meeting UI also exposes the full candidate matrix and the reason for exclusions.
@@ -164,7 +198,8 @@ catalog rather than an embedded constant.
 
 ## Current limitations
 
-- the model catalog contains sizing archetypes, not named checkpoint profiles;
+- named reference entries are sourced planning inputs, not installed checkpoints or
+  measured client-quality profiles;
 - performance is a low-confidence range and is not yet statistically calibrated;
 - the web UI does not ingest documents or build scenario packs;
 - OCR, vector retrieval and application latency are outside the current projection;

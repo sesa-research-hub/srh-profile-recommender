@@ -39,4 +39,5 @@ def load_catalogs() -> dict[str, dict[str, Any]]:
         "hardware": _load("hardware-v1.json", "srh.hardware-catalog.v1"),
         "models": _load("model-archetypes-v1.json", "srh.model-archetype-catalog.v1"),
         "evidence": _load("evidence-v1.json", "srh.capacity-evidence-catalog.v1"),
+        "reference_models": _load("reference-models-v1.json", "srh.reference-model-catalog.v1"),
     }

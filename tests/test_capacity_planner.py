@@ -87,6 +87,16 @@ class CapacityPlannerTests(unittest.TestCase):
         }
         self.assertEqual({row["model"]["id"] for row in rows}, feasible_models)
 
+    def test_screening_tiers_are_distinct_and_explainable(self):
+        plan = build_capacity_plan(self.intake)
+        rows = [row for row in plan["candidates"] if row["candidate_id"] in plan["screening_summary"]["shortlist_candidate_ids"]]
+        statuses = {row["screening_status"] for row in rows}
+        self.assertIn("STRONG_FIT", statuses)
+        self.assertTrue(statuses & {"BORDERLINE_FIT", "UNLIKELY_FIT"})
+        for row in rows:
+            self.assertIn("gates", row["assessment"])
+            self.assertTrue(row["assessment"]["rationale"])
+
     def test_invalid_meeting_input_fails_closed(self):
         intake = copy.deepcopy(self.intake)
         intake["traffic"]["concurrent_users"] = 20
@@ -172,6 +182,26 @@ class CapacityServerTests(unittest.TestCase):
         self.assertEqual(len(report["candidates"]), 3)
         self.assertEqual(report["rejected_evidence"], [])
         self.assertEqual(report["verdict"], "NO_DEPLOYMENT_MEETS_REQUIREMENTS")
+
+    def test_reference_model_api_preserves_non_measured_boundary(self):
+        intake = json.loads((ROOT / "srh/capacity/examples/construction-tenders-intake.json").read_text())
+        plan = build_capacity_plan(intake)
+        request = urllib.request.Request(
+            self.base + "/api/reference-simulation",
+            data=json.dumps({
+                "contract": plan["translated_workload_contract"],
+                "model_id": "deepseek-v4-flash-0731",
+                "hardware_ids": ["nvidia-gb10-128gb"],
+                "weight_bits": 4,
+                "maximum_power_w": 750,
+            }).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(request) as response:
+            report = json.load(response)
+        self.assertEqual(report["schema"], "srh.reference-model-simulation.v1")
+        self.assertFalse(report["evidence_boundary"]["deployment_recommendation"])
+        self.assertEqual(report["model"]["source_type"], "VENDOR_MODEL_CARD")
 
 
 if __name__ == "__main__":

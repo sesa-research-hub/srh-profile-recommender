@@ -233,13 +233,27 @@ def _estimate_candidate(hardware: dict[str, Any], model: dict[str, Any], bits: i
         and metrics["end_to_end_p95_ms"]["point"] <= objectives["end_to_end_p95_ms"]
         and metrics["answer_tokens_per_second_per_user"]["point"] >= objectives["answer_tokens_per_second_min"]
     )
+    conservative_meets = (
+        metrics["ttfa_p95_ms"]["high"] <= objectives["ttfa_p95_ms"]
+        and metrics["end_to_end_p95_ms"]["high"] <= objectives["end_to_end_p95_ms"]
+        and metrics["answer_tokens_per_second_per_user"]["low"] >= objectives["answer_tokens_per_second_min"]
+    )
+    optimistic_meets = (
+        metrics["ttfa_p95_ms"]["low"] <= objectives["ttfa_p95_ms"]
+        and metrics["end_to_end_p95_ms"]["low"] <= objectives["end_to_end_p95_ms"]
+        and metrics["answer_tokens_per_second_per_user"]["high"] >= objectives["answer_tokens_per_second_min"]
+    )
+    headroom = (usable_gib - required_gib) / usable_gib
     if blockers:
         status = "NOT_FEASIBLE"
+    elif conservative_meets and headroom >= 0.15:
+        status = "STRONG_FIT"
     elif point_meets:
-        status = "POTENTIAL_FIT"
+        status = "CONDITIONAL_FIT"
+    elif optimistic_meets:
+        status = "BORDERLINE_FIT"
     else:
         status = "UNLIKELY_FIT"
-    headroom = (usable_gib - required_gib) / usable_gib
     latency_ratio = objectives["end_to_end_p95_ms"] / max(metrics["end_to_end_p95_ms"]["point"], 1)
     speed_ratio = metrics["answer_tokens_per_second_per_user"]["point"] / objectives["answer_tokens_per_second_min"]
     score = -1000 if blockers else round(50 * max(-1, headroom) + 25 * min(2, latency_ratio) + 25 * min(2, speed_ratio), 3)
@@ -252,6 +266,29 @@ def _estimate_candidate(hardware: dict[str, Any], model: dict[str, Any], bits: i
         "final_recommendation_status": "MEASUREMENT_REQUIRED",
         "screening_score": score,
         "blockers": blockers,
+        "assessment": {
+            "method": "UNCERTAINTY_BAND_AND_HARD_GATES_V1",
+            "rationale": {
+                "STRONG_FIT": "Even the conservative performance band meets every target and memory headroom is at least 15%.",
+                "CONDITIONAL_FIT": "The point estimate meets every target, but the uncertainty band or memory margin requires measurement.",
+                "BORDERLINE_FIT": "Only the optimistic edge of the estimate meets every target; benchmark priority is low unless this model class has a quality advantage.",
+                "UNLIKELY_FIT": "Even the optimistic performance band misses at least one target.",
+                "NOT_FEASIBLE": "A hard capacity, context, precision or power constraint is violated.",
+            }[status],
+            "hard_gates_pass": not blockers,
+            "conservative_band_meets_all_slos": conservative_meets,
+            "point_estimate_meets_all_slos": point_meets,
+            "optimistic_band_meets_all_slos": optimistic_meets,
+            "memory_headroom_fraction": round(headroom, 4),
+            "gates": {
+                "memory": {"actual_gib": round(required_gib, 2), "maximum_gib": round(usable_gib, 2), "pass": required_gib <= usable_gib},
+                "context": {"actual_tokens": context_max, "maximum_tokens": model["maximum_context_tokens"], "pass": context_max <= model["maximum_context_tokens"]},
+                "power": {"actual_w": hardware["power_w"], "maximum_w": max_power_w, "pass": max_power_w is None or hardware["power_w"] <= max_power_w},
+                "ttfa_point": {"actual_ms": metrics["ttfa_p95_ms"]["point"], "maximum_ms": objectives["ttfa_p95_ms"], "pass": metrics["ttfa_p95_ms"]["point"] <= objectives["ttfa_p95_ms"]},
+                "end_to_end_point": {"actual_ms": metrics["end_to_end_p95_ms"]["point"], "maximum_ms": objectives["end_to_end_p95_ms"], "pass": metrics["end_to_end_p95_ms"]["point"] <= objectives["end_to_end_p95_ms"]},
+                "answer_speed_point": {"actual_tps": metrics["answer_tokens_per_second_per_user"]["point"], "minimum_tps": objectives["answer_tokens_per_second_min"], "pass": metrics["answer_tokens_per_second_per_user"]["point"] >= objectives["answer_tokens_per_second_min"]},
+            },
+        },
         "capacity": {
             "usable_memory_gib": round(usable_gib, 2),
             "estimated_weight_memory_gib": round(weights_gib, 2),
@@ -274,7 +311,8 @@ def _estimate_candidate(hardware: dict[str, Any], model: dict[str, Any], bits: i
 
 def _shortlist(candidates: list[dict[str, Any]], size: int = 3) -> list[str]:
     eligible = [candidate for candidate in candidates if candidate["screening_status"] != "NOT_FEASIBLE"]
-    eligible.sort(key=lambda value: (value["screening_status"] != "POTENTIAL_FIT", -value["screening_score"], value["candidate_id"]))
+    status_rank = {"STRONG_FIT": 0, "CONDITIONAL_FIT": 1, "BORDERLINE_FIT": 2, "UNLIKELY_FIT": 3}
+    eligible.sort(key=lambda value: (status_rank[value["screening_status"]], -value["screening_score"], value["candidate_id"]))
     selected: list[dict[str, Any]] = []
     hardware_seen: set[str] = set()
     model_ids = list(dict.fromkeys(candidate["model"]["id"] for candidate in eligible))
@@ -358,7 +396,9 @@ def build_capacity_plan(intake: dict[str, Any], catalogs: dict[str, dict[str, An
         "screening_summary": {
             "candidate_count": len(candidates),
             "feasible_count": sum(candidate["screening_status"] != "NOT_FEASIBLE" for candidate in candidates),
-            "potential_fit_count": sum(candidate["screening_status"] == "POTENTIAL_FIT" for candidate in candidates),
+            "strong_fit_count": sum(candidate["screening_status"] == "STRONG_FIT" for candidate in candidates),
+            "conditional_fit_count": sum(candidate["screening_status"] == "CONDITIONAL_FIT" for candidate in candidates),
+            "borderline_fit_count": sum(candidate["screening_status"] == "BORDERLINE_FIT" for candidate in candidates),
             "shortlist_candidate_ids": shortlist,
         },
         "candidates": candidates,

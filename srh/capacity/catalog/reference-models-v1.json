@@ -1,0 +1,101 @@
+{
+  "schema": "srh.reference-model-catalog.v1",
+  "version": "1.0.0",
+  "updated_at": "2026-09-16",
+  "notice": "Vendor-published facts and benchmarks are reference evidence, not SRH measurements and not predictions of performance on the client workload.",
+  "items": [
+    {
+      "id": "deepseek-v4-flash-0731",
+      "name": "DeepSeek V4 Flash 0731 (open checkpoint)",
+      "provider": "DeepSeek",
+      "availability": "REFERENCE_NOT_INSTALLED",
+      "architecture": "mixture-of-experts",
+      "total_parameters_b": 284,
+      "active_parameters_b": 13,
+      "layers": 61,
+      "kv_heads": 8,
+      "head_dim": 128,
+      "kv_shape_provenance": "SRH_HEURISTIC_FOR_CAPACITY_SCREENING",
+      "maximum_context_tokens": 1000000,
+      "supported_weight_bits": [4, 8],
+      "weight_precision_provenance": "VENDOR_PUBLISHED_MIXED_PRECISION",
+      "published_precision": "FP4 + FP8 mixed",
+      "license": "MIT",
+      "source_url": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash",
+      "source_type": "VENDOR_MODEL_CARD",
+      "published_benchmarks": [
+        {"name": "Terminal Bench 2.1", "value": 82.7, "source_url": "https://api-docs.deepseek.com/updates/"},
+        {"name": "NL2Repo", "value": 54.2, "source_url": "https://api-docs.deepseek.com/updates/"}
+      ]
+    },
+    {
+      "id": "deepseek-v4-pro",
+      "name": "DeepSeek V4 Pro",
+      "provider": "DeepSeek",
+      "availability": "REFERENCE_NOT_INSTALLED",
+      "architecture": "mixture-of-experts",
+      "total_parameters_b": 1600,
+      "active_parameters_b": 49,
+      "layers": 80,
+      "kv_heads": 8,
+      "head_dim": 128,
+      "kv_shape_provenance": "SRH_HEURISTIC_FOR_CAPACITY_SCREENING",
+      "maximum_context_tokens": 1000000,
+      "supported_weight_bits": [4, 8],
+      "weight_precision_provenance": "VENDOR_PUBLISHED_MIXED_PRECISION",
+      "published_precision": "FP4 + FP8 mixed",
+      "license": "MIT",
+      "source_url": "https://huggingface.co/deepseek-ai/DeepSeek-V4-Flash",
+      "source_type": "VENDOR_MODEL_CARD",
+      "published_benchmarks": [
+        {"name": "Terminal Bench 2.1", "value": 87.9, "source_url": "https://api-docs.deepseek.com/updates/"},
+        {"name": "NL2Repo", "value": 61.5, "source_url": "https://api-docs.deepseek.com/updates/"}
+      ]
+    },
+    {
+      "id": "mistral-small-4",
+      "name": "Mistral Small 4",
+      "provider": "Mistral AI",
+      "availability": "REFERENCE_NOT_INSTALLED",
+      "architecture": "mixture-of-experts",
+      "total_parameters_b": 119,
+      "active_parameters_b": 6.5,
+      "layers": 48,
+      "kv_heads": 8,
+      "head_dim": 128,
+      "kv_shape_provenance": "SRH_HEURISTIC_FOR_CAPACITY_SCREENING",
+      "maximum_context_tokens": 256000,
+      "supported_weight_bits": [4, 8],
+      "weight_precision_provenance": "SRH_PLANNING_OPTIONS",
+      "published_precision": "multiple deployment formats",
+      "license": "Apache-2.0",
+      "source_url": "https://mistral.ai/news/mistral-small-4/",
+      "source_type": "VENDOR_MODEL_CARD",
+      "published_benchmarks": [
+        {"name": "Relative requests/s vs Mistral Small 3", "value": "3x", "source_url": "https://mistral.ai/news/mistral-small-4/"},
+        {"name": "Relative completion time vs Mistral Small 3", "value": "-40%", "source_url": "https://mistral.ai/news/mistral-small-4/"}
+      ]
+    },
+    {
+      "id": "mistral-large-3",
+      "name": "Mistral Large 3",
+      "provider": "Mistral AI",
+      "availability": "REFERENCE_NOT_INSTALLED",
+      "architecture": "mixture-of-experts",
+      "total_parameters_b": 675,
+      "active_parameters_b": 41,
+      "layers": 64,
+      "kv_heads": 8,
+      "head_dim": 128,
+      "kv_shape_provenance": "SRH_HEURISTIC_FOR_CAPACITY_SCREENING",
+      "maximum_context_tokens": 256000,
+      "supported_weight_bits": [4, 8],
+      "weight_precision_provenance": "SRH_PLANNING_OPTIONS",
+      "published_precision": "NVFP4 format published",
+      "license": "Apache-2.0",
+      "source_url": "https://docs.mistral.ai/models/mistral-large-3-25-12",
+      "source_type": "VENDOR_MODEL_CARD",
+      "published_benchmarks": []
+    }
+  ]
+}

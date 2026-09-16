@@ -27,6 +27,8 @@ inference implementations remain external to the SRH decision engine.
 - A Linux/Docker campaign runner that measures three prefill budgets and restores the original container.
 - A local Capacity Planner interface for client discovery, feasibility screening and benchmark handoff.
 - A Deployment Recommender for controlled, observed comparisons across hardware and exact models.
+- Local model discovery and observed readiness benchmarking from the client-meeting UI.
+- Sourced named-model reference simulations kept separate from local measurements.
 
 Runtime-profile tuning deliberately requires the **same model/snapshot, image and
 hardware**. The deployment layer can compare different observed systems only when

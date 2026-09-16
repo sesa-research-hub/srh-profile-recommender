@@ -16,6 +16,10 @@ to a controlled measurement campaign and a final evidence-based decision.
 - provides a local meeting interface, JSON/Markdown dossiers and CLI workflows.
 - includes the previous measured GB10 campaign as an explicitly scoped UI demo and
   keeps its original workload separate from the current client assessment.
+- detects locally served LLMs, executes a controlled readiness benchmark and compares
+  only runs with the same workload profile, concurrency and repetition count;
+- classifies planning candidates through explainable hard gates and uncertainty bands,
+  while keeping vendor-sourced DeepSeek/Mistral simulations visibly non-measured.
 
 ## Decision boundary
 
