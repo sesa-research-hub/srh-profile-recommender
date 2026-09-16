@@ -180,6 +180,9 @@ class CapacityServerTests(unittest.TestCase):
     def test_health_and_capacity_api(self):
         with urllib.request.urlopen(self.base + "/health") as response:
             self.assertEqual(json.load(response)["status"], "ok")
+        with urllib.request.urlopen(self.base + "/responsive-tables.css") as response:
+            self.assertEqual(response.headers.get_content_type(), "text/css")
+            self.assertIn(b".comparison-table", response.read())
         body = (ROOT / "srh/capacity/examples/construction-tenders-intake.json").read_bytes()
         request = urllib.request.Request(self.base + "/api/plan", data=body, headers={"Content-Type": "application/json"})
         with urllib.request.urlopen(request) as response:

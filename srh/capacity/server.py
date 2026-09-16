@@ -32,6 +32,7 @@ STATIC = {
     "/": ("index.html", "text/html; charset=utf-8"),
     "/app.css": ("app.css", "text/css; charset=utf-8"),
     "/measured.css": ("measured.css", "text/css; charset=utf-8"),
+    "/responsive-tables.css": ("responsive-tables.css", "text/css; charset=utf-8"),
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
 }
 
