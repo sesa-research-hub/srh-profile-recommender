@@ -7,6 +7,11 @@ an explainable decision about an AI runtime configuration. It checks quality and
 service objectives before ranking eligible alternatives, and explicitly reports
 when no tested configuration is suitable or evidence is insufficient.
 
+The Capacity Planner now adds the missing upstream step: during a client meeting it
+captures business-readable requirements, calculates feasibility, projects broad
+performance ranges and produces a shortlist plus benchmark plan. Estimates remain
+separate from observed evidence.
+
 The product is intended for multiple model families. The initial integration and
 validation use Docker/vLLM; Qwen is the first test backend. Model weights and
 inference implementations remain external to the SRH decision engine.
@@ -20,11 +25,14 @@ inference implementations remain external to the SRH decision engine.
 - Quality/SLO gates followed by deterministic ranking: TTFA p95, E2E p95, then minimum answer throughput.
 - JSON and Markdown decision evidence with exclusions, scope and next action.
 - A Linux/Docker campaign runner that measures three prefill budgets and restores the original container.
+- A local Capacity Planner interface for client discovery, feasibility screening and benchmark handoff.
+- A Deployment Recommender for controlled, observed comparisons across hardware and exact models.
 
-The current comparison deliberately requires the **same model/snapshot, image and
-hardware**. Cross-model ranking, general runtime plugins and task-specific evaluator
-plugins are future work. The alpha is not a trained recommender, a universal model
-benchmark or a production certification.
+Runtime-profile tuning deliberately requires the **same model/snapshot, image and
+hardware**. The deployment layer can compare different observed systems only when
+the workload, scenario, evaluator, experiment and protocol are identical. General
+runtime plugins and task-specific evaluators remain future work. The alpha is not a
+trained recommender, a universal model benchmark or a production certification.
 
 ## Quick start: offline validation
 
@@ -35,6 +43,17 @@ No GPU, Docker or model download is required to run the offline tests.
 python3 -m unittest discover -s tests -v
 python3 -m srh.recommendation.engine --help
 ```
+
+Launch the local client-meeting interface:
+
+```bash
+python3 -m srh.capacity.server --open
+```
+
+It runs on `http://127.0.0.1:8765`, uploads no documents and persists nothing unless
+the user downloads the capacity dossier. See the
+[Capacity Planner guide](srh/capacity/README.md) and the
+[workload-to-deployment architecture](docs/CAPACITY-ARCHITECTURE.md).
 
 Compare three previously collected evidence files:
 
@@ -84,8 +103,10 @@ blazux optimizations, model weights, quantization or NVIDIA kernels.
 ## Documentation and release
 
 - [Architecture, scope and SRH contribution](docs/SRH-POSITIONING.md)
+- [Capacity Planner architecture](docs/CAPACITY-ARCHITECTURE.md)
 - [License and distribution boundaries](THIRD_PARTY_NOTICES.md)
 - [Alpha release notes](docs/releases/0.1.0-alpha.1.md)
+- [Capacity Planner alpha release notes](docs/releases/0.2.0-alpha.1.md)
 - [Publishing procedure](docs/RELEASING.md)
 - [Apache-2.0](LICENSE) and [attribution notices](NOTICE)
 

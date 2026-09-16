@@ -11,6 +11,8 @@ import urllib.request
 REPO = 'sesa-research-hub/srh-profile-recommender'
 BRANCH = 'feature/srh-workload-intelligence'
 TAG = 'srh-profile-recommender-v0.1.0-alpha.1'
+PR_TITLE = 'SRH Profile Recommender: first evidence-driven alpha'
+RELEASE_NAME = 'SRH Profile Recommender 0.1.0-alpha.1'
 ROOT = Path(__file__).resolve().parents[1]
 
 class GitHub:
@@ -35,11 +37,12 @@ class GitHub:
             raise RuntimeError(f'GitHub HTTP {exc.code}: operation stopped. Check repository permissions, reviews and required checks; then rerun.') from None
 
 
-def publish(api, sha, tree, pr_body, release_body):
-    head = api.request('GET', '/commits/' + BRANCH)
+def publish(api, sha, tree, pr_body, release_body, *, branch=BRANCH, tag=TAG,
+            pr_title=PR_TITLE, release_name=RELEASE_NAME):
+    head = api.request('GET', '/commits/' + branch)
     if not head or head['sha'] != sha:
         raise RuntimeError('Remote branch differs from local HEAD. Push the tested branch first.')
-    pulls = api.request('GET', '/pulls?state=all&head=sesa-research-hub:' + BRANCH + '&base=main&per_page=100') or []
+    pulls = api.request('GET', '/pulls?state=all&head=sesa-research-hub:' + branch + '&base=main&per_page=100') or []
     matching = [p for p in pulls if p['head']['sha'] == sha and p['head']['repo']['full_name'] == REPO]
     pr = next((p for p in matching if p.get('merged_at')), None)
     if pr is None:
@@ -48,7 +51,7 @@ def publish(api, sha, tree, pr_body, release_body):
             raise RuntimeError('main has diverged. Reconcile and test locally before publishing.')
         pr = next((p for p in matching if p['state'] == 'open'), None)
         if pr is None:
-            pr = api.request('POST', '/pulls', {'title': 'SRH Profile Recommender: first evidence-driven alpha', 'head': BRANCH, 'base': 'main', 'body': pr_body})
+            pr = api.request('POST', '/pulls', {'title': pr_title, 'head': branch, 'base': 'main', 'body': pr_body})
         print('Pull request:', pr['html_url'])
         merged = api.request('PUT', f"/pulls/{pr['number']}/merge", {'sha': sha, 'merge_method': 'merge'})
         if not merged.get('merged'):
@@ -59,19 +62,19 @@ def publish(api, sha, tree, pr_body, release_body):
     commit = api.request('GET', '/git/commits/' + merge_sha)
     if not commit or commit['tree']['sha'] != tree:
         raise RuntimeError('Merged tree differs from tested source. No tag or release created.')
-    ref = api.request('GET', '/git/ref/tags/' + TAG)
+    ref = api.request('GET', '/git/ref/tags/' + tag)
     if ref:
         obj = ref['object']
         if obj['type'] != 'commit' or obj['sha'] != merge_sha:
             raise RuntimeError('Existing tag conflicts with verified merge; it will not be overwritten.')
     else:
-        api.request('POST', '/git/refs', {'ref': 'refs/tags/' + TAG, 'sha': merge_sha})
-    release = api.request('GET', '/releases/tags/' + TAG)
+        api.request('POST', '/git/refs', {'ref': 'refs/tags/' + tag, 'sha': merge_sha})
+    release = api.request('GET', '/releases/tags/' + tag)
     if release:
         if release.get('draft') or not release.get('prerelease'):
             raise RuntimeError('Existing release has unexpected status; inspect it manually.')
     else:
-        release = api.request('POST', '/releases', {'tag_name': TAG, 'target_commitish': merge_sha, 'name': 'SRH Profile Recommender 0.1.0-alpha.1', 'body': release_body, 'draft': False, 'prerelease': True, 'make_latest': 'false'})
+        release = api.request('POST', '/releases', {'tag_name': tag, 'target_commitish': merge_sha, 'name': release_name, 'body': release_body, 'draft': False, 'prerelease': True, 'make_latest': 'false'})
     print('Prerelease:', release['html_url'])
 
 
@@ -82,8 +85,14 @@ def git(*args):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument('--publish', action='store_true', help='Authenticate interactively and create PR, merge, tag and prerelease')
+    parser.add_argument('--branch', default=BRANCH, help='Tested source branch')
+    parser.add_argument('--tag', default=TAG, help='Immutable release tag')
+    parser.add_argument('--pr-title', default=PR_TITLE)
+    parser.add_argument('--release-name', default=RELEASE_NAME)
+    parser.add_argument('--pr-body', type=Path, default=ROOT / 'docs/releases/PULL_REQUEST.md')
+    parser.add_argument('--release-body', type=Path, default=ROOT / 'docs/releases/0.1.0-alpha.1.md')
     args = parser.parse_args()
-    if git('branch', '--show-current') != BRANCH or git('status', '--porcelain'):
+    if git('branch', '--show-current') != args.branch or git('status', '--porcelain'):
         raise RuntimeError('Use the expected branch with a clean working tree.')
     if git('remote', 'get-url', 'origin') != 'https://github.com/' + REPO + '.git':
         raise RuntimeError('Unexpected origin URL.')
@@ -96,9 +105,13 @@ def main():
     token = getpass.getpass('GitHub personal access token (hidden, never saved): ')
     if not token:
         raise RuntimeError('Empty token.')
-    publish(GitHub(token), sha, tree,
-            (ROOT / 'docs/releases/PULL_REQUEST.md').read_text(),
-            (ROOT / 'docs/releases/0.1.0-alpha.1.md').read_text())
+    publish(
+        GitHub(token), sha, tree,
+        args.pr_body.read_text(encoding='utf-8'),
+        args.release_body.read_text(encoding='utf-8'),
+        branch=args.branch, tag=args.tag, pr_title=args.pr_title,
+        release_name=args.release_name,
+    )
 
 if __name__ == '__main__':
     try:

@@ -1,0 +1,22 @@
+{
+  "schema": "srh.deployment-candidates.v1",
+  "policy": "cost_first",
+  "candidates": [
+    {
+      "profile_id": "srh-replace-with-observed-profile-a",
+      "label": "Workstation candidate",
+      "license_review_status": "review_required",
+      "estimated_three_year_cost_eur": null,
+      "cost_provenance": null,
+      "device_power_w": 600
+    },
+    {
+      "profile_id": "srh-replace-with-observed-profile-b",
+      "label": "Datacenter candidate",
+      "license_review_status": "review_required",
+      "estimated_three_year_cost_eur": null,
+      "cost_provenance": null,
+      "device_power_w": 700
+    }
+  ]
+}

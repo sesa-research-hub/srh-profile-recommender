@@ -1,0 +1,112 @@
+<!doctype html>
+<html lang="it">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SRH Capacity Planner</title>
+  <link rel="stylesheet" href="/app.css">
+  <link rel="stylesheet" href="/measured.css">
+</head>
+<body>
+  <header class="hero">
+    <div class="hero-inner">
+      <div>
+        <p class="eyebrow">SESA RESEARCH HUB</p>
+        <h1>Private AI Capacity Planner</h1>
+        <p class="hero-copy">Dal bisogno espresso dal cliente a una shortlist di configurazioni da misurare.</p>
+      </div>
+      <div class="stage"><span>1</span> Discovery <b>→</b> <span>2</span> Stima <b>→</b> <span>3</span> Test <b>→</b> <span>4</span> Decisione</div>
+    </div>
+  </header>
+
+  <main>
+    <section class="intro">
+      <div>
+        <p class="eyebrow dark">SESSIONE CON IL CLIENTE</p>
+        <h2>Descriviamo il lavoro, non la GPU</h2>
+        <p>Inserisci utenti, documenti e tempi desiderati. SRH traduce i dati in requisiti tecnici, verifica la capacità e prepara i candidati per il benchmark.</p>
+      </div>
+      <button id="load-example" class="button secondary">Carica esempio ufficio gare</button>
+    </section>
+
+    <form id="intake-form">
+      <section class="panel">
+        <div class="section-title"><span>01</span><div><h3>Progetto</h3><p>Informazioni che resteranno nel dossier scaricabile.</p></div></div>
+        <div class="grid two">
+          <label>Nome impresa o progetto<input name="name" value="Ufficio gare — pilot AI privata" required></label>
+          <label>Identificativo assessment<input name="id" value="construction-tenders-pilot" pattern="[a-z0-9][a-z0-9._-]*" required></label>
+          <label>Tipo di utilizzo<select name="workload_class"><option value="mixed">Analisi documenti + bozze</option><option value="rag">Domande e risposte sui documenti</option><option value="document-analysis">Analisi documentale</option><option value="extraction">Estrazione strutturata</option></select></label>
+          <label>Residenza dei dati<select name="data_residency"><option value="on-premises">Presso il cliente</option><option value="srh-lab">Laboratorio SRH</option><option value="private-cloud">Cloud privato</option></select></label>
+          <label class="wide">Famiglie di modelli da provare, facoltative<input name="requested_models" value="Qwen, DeepSeek, Llama" placeholder="es. Qwen, DeepSeek, Llama"></label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title"><span>02</span><div><h3>Persone e utilizzo</h3><p>Il carico viene derivato da numeri comprensibili.</p></div></div>
+        <div class="grid four">
+          <label>Utenti totali<input type="number" name="total_users" min="1" value="8" required></label>
+          <label>Utenti contemporanei<input type="number" name="concurrent_users" min="1" value="4" required></label>
+          <label>Richieste al giorno<input type="number" name="requests_per_day" min="1" value="20" required></label>
+          <label>Picco richieste/minuto<input type="number" name="peak_rpm" min="0.1" step="0.1" value="2" required></label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title"><span>03</span><div><h3>Documenti e risposte</h3><p>Indica il caso tipico, il caso impegnativo e il massimo previsto.</p></div></div>
+        <div class="grid two">
+          <label>Modalità di analisi<select name="context_mode"><option value="retrieval">RAG: recupera solo le pagine rilevanti</option><option value="full-document">Passa al modello il documento completo</option></select></label>
+          <label>Documenti scansionati (%)<input type="number" name="scanned_percent" min="0" max="100" value="30"></label>
+        </div>
+        <div class="grid four labels-top">
+          <div class="group-label">Pagine del documento</div><label>Tipico<input type="number" name="pages_p50" min="1" value="80"></label><label>Impegnativo<input type="number" name="pages_p95" min="1" value="250"></label><label>Massimo<input type="number" name="pages_max" min="1" value="500"></label>
+          <div class="group-label">Pagine rilevanti per risposta</div><label>Tipico<input type="number" name="retrieved_p50" min="1" value="8"></label><label>Impegnativo<input type="number" name="retrieved_p95" min="1" value="20"></label><label>Massimo<input type="number" name="retrieved_max" min="1" value="40"></label>
+          <div class="group-label">Parole della risposta</div><label>Tipico<input type="number" name="words_p50" min="1" value="400"></label><label>Impegnativo<input type="number" name="words_p95" min="1" value="1200"></label><label>Massimo<input type="number" name="words_max" min="1" value="2000"></label>
+        </div>
+        <p class="hint">Le “pagine rilevanti” rappresentano il contesto recuperato dal RAG. Il documento completo resta nel sistema documentale.</p>
+      </section>
+
+      <section class="panel">
+        <div class="section-title"><span>04</span><div><h3>Esperienza attesa</h3><p>Gli obiettivi diventano le soglie della valutazione.</p></div></div>
+        <div class="grid four">
+          <label>Prima risposta entro (s)<input type="number" name="first_seconds" min="0.1" step="0.1" value="5"></label>
+          <label>Risposta completa entro (s)<input type="number" name="complete_seconds" min="1" step="1" value="60"></label>
+          <label class="check"><input type="checkbox" name="citations" checked><span>Citazioni obbligatorie</span></label>
+          <label class="check"><input type="checkbox" name="grounding" checked><span>Solo fonti aziendali</span></label>
+        </div>
+      </section>
+
+      <section class="panel">
+        <div class="section-title"><span>05</span><div><h3>Spazio delle alternative</h3><p>Il planner esplora classi di modello, non certifica la loro qualità.</p></div></div>
+        <div class="choice-columns">
+          <fieldset><legend>Ambienti hardware</legend><div id="hardware-options" class="choices"></div></fieldset>
+          <fieldset><legend>Classi di modello</legend><div id="model-options" class="choices"></div></fieldset>
+          <fieldset><legend>Precisione pesi</legend><div class="choices"><label class="check"><input type="checkbox" name="bits" value="4" checked><span>4 bit</span></label><label class="check"><input type="checkbox" name="bits" value="8" checked><span>8 bit</span></label><label>Potenza massima dispositivo (W)<input type="number" name="max_power" min="100" value="750"></label></div></fieldset>
+        </div>
+      </section>
+
+      <div class="action-row"><div><strong>Nessun documento viene caricato.</strong><span> Questa fase raccoglie soltanto requisiti e assunzioni.</span></div><button class="button primary" type="submit">Calcola shortlist</button></div>
+    </form>
+
+    <section id="results" class="results hidden" aria-live="polite">
+      <div class="results-head"><div><p class="eyebrow dark">RISULTATO PRELIMINARE</p><h2>Shortlist da verificare sul caso cliente</h2></div><div class="buttons"><button id="download-json" class="button secondary">Scarica dossier JSON</button><button id="print" class="button secondary">Stampa / PDF</button></div></div>
+      <div class="notice"><strong>Stima di pianificazione.</strong> Capacità calcolata e prestazioni stimate non sostituiscono le misure. La qualità verrà valutata sui capitolati del cliente.</div>
+      <div id="translated" class="stats"></div>
+      <div id="shortlist"></div>
+      <div class="result-grid"><div class="panel compact"><h3>Piano di prova</h3><div id="test-plan"></div></div><div class="panel compact"><h3>Assunzioni e copertura</h3><div id="assumptions"></div></div></div>
+      <details class="panel measured">
+        <summary>Recommendation verificata — disponibile dopo i test</summary>
+        <p>Importa il manifest dei candidati e almeno due evidenze osservate. Il confronto avviene localmente e richiede scenario, evaluator, esperimento e protocollo identici.</p>
+        <div class="grid two">
+          <label>Manifest candidati JSON<input id="manifest-file" type="file" accept="application/json,.json"></label>
+          <label>Evidenze misurate JSON<input id="evidence-files" type="file" accept="application/json,.json" multiple></label>
+        </div>
+        <div class="measured-action"><button id="evaluate-measured" class="button primary" type="button">Valuta evidenze misurate</button></div>
+        <div id="measured-result"></div>
+      </details>
+    </section>
+    <div id="error" class="error hidden"></div>
+  </main>
+  <footer>SRH Profile Recommender · Capacity Planner 0.1 · Le decisioni finali richiedono evidenze misurate.</footer>
+  <script src="/app.js"></script>
+</body>
+</html>

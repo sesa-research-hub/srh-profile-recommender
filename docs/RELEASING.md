@@ -1,13 +1,30 @@
-# Publishing the first alpha
+# Publishing an SRH prerelease
 
-The release is `srh-profile-recommender-v0.1.0-alpha.1`, a public prerelease of this monorepo. See THIRD_PARTY_NOTICES.md for archive boundaries.
+The publishing helper can create a public prerelease of this monorepo. See
+THIRD_PARTY_NOTICES.md for archive boundaries.
 
-Run from a clean, committed `feature/srh-workload-intelligence` branch:
+For the first alpha, run from a clean, committed
+`feature/srh-workload-intelligence` branch:
 
 ```bash
 cd ~/ai/srh-profile-recommender
 git -c credential.helper= push -u origin feature/srh-workload-intelligence
 python3 scripts/publish_srh_release.py --publish
+```
+
+For the Capacity Planner alpha, run from a clean, committed
+`feature/srh-capacity-planner` branch:
+
+```bash
+cd ~/ai/srh-profile-recommender
+git -c credential.helper= push -u origin feature/srh-capacity-planner
+python3 scripts/publish_srh_release.py --publish \
+  --branch feature/srh-capacity-planner \
+  --tag srh-profile-recommender-v0.2.0-alpha.1 \
+  --pr-title "SRH Capacity Planner and measured deployment recommendation" \
+  --release-name "SRH Profile Recommender 0.2.0-alpha.1" \
+  --pr-body docs/releases/PULL_REQUEST-CAPACITY.md \
+  --release-body docs/releases/0.2.0-alpha.1.md
 ```
 
 For Git, enter your GitHub username and use the PAT as the password. The Python helper asks for the PAT again, hidden; the token identifies your account and is never saved. A fine-grained token must select this repository and allow Contents read/write and Pull requests read/write. Repository and organization policies still apply.

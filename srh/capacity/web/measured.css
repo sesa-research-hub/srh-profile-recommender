@@ -1,0 +1,9 @@
+.measured{margin-top:16px}
+.measured summary{cursor:pointer;font-size:18px;font-weight:750;color:var(--ink)}
+.measured>p{color:var(--muted);max-width:820px}
+.measured-action{margin:16px 0}
+.verified{background:var(--pale);border-left:4px solid var(--green);border-radius:8px;padding:16px;margin-top:16px}
+.verified span{display:block;color:var(--deep);font-size:11px;font-weight:800;letter-spacing:.08em}
+.verified strong{display:block;font-size:22px;margin:4px 0}
+.verified p{margin:0;color:var(--muted)}
+@media print{.measured{display:none}}
