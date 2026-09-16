@@ -1,9 +1,9 @@
-# SRH Private AI Capacity Planner
+# SRH Private AI Recommender workflow
 
-The Capacity Planner turns business-readable discovery inputs into a preliminary,
-auditable shortlist of private AI deployment candidates. It is designed for use
-during a client meeting and feeds the existing measurement workflow; it does not
-turn estimates into deployment evidence.
+The local interface joins Discovery, Capacity Planning, Benchmark Lab, Deployment
+Recommendation and client reporting in one traceable workflow. The Capacity Planner
+turns business-readable inputs into a preliminary shortlist; estimates never become
+deployment evidence without measurement.
 
 ## Run the meeting interface
 
@@ -15,10 +15,18 @@ python3 -m srh.capacity.server --open
 
 Open `http://127.0.0.1:8765` if the browser does not open automatically. The server
 binds to localhost by default, uses Python's standard library and does not persist
-client inputs. The browser can download the capacity dossier as JSON or print the
-results to PDF. No client documents are uploaded by this interface. After laboratory
+client inputs. No client documents are uploaded by this interface. After laboratory
 tests, the same page can import a candidate manifest and observed evidence JSON files
 to run the measured Deployment Recommender locally.
+
+The final phase composes an A4 consulting report containing declared requirements,
+shortlist, assumptions, simulations, observed readiness tests, measured recommendation,
+next actions, decision boundary and integrity hashes. **Print / save PDF** opens the
+browser print dialogue; choose *Save as PDF*. The report labels itself as preliminary,
+readiness-observed, inconclusive or verified according to the evidence actually linked
+to the current Workload Contract. A bundled demo with a different contract is excluded
+from the client recommendation. The complete machine-readable session can also be
+downloaded as `srh.assessment-session.v1` JSON.
 
 See [`docs/ESTIMATOR-METHODOLOGY.md`](../../docs/ESTIMATOR-METHODOLOGY.md) for the
 equations, benchmark anchors, concurrency treatment and decision boundary.
@@ -31,8 +39,8 @@ flow without presenting those measurements as evidence for the current client.
 
 ## Test a model already running on the machine
 
-After calculating the client shortlist, open **Test real models and build the
-recommendation**. The interface discovers OpenAI-compatible endpoints bound to
+After calculating the client shortlist, continue to **Benchmark Lab**. The interface
+discovers OpenAI-compatible endpoints bound to
 localhost, currently including the vLLM endpoint on port `18300`. For each selected
 model choose:
 
