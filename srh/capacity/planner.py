@@ -18,7 +18,7 @@ from ..workloads.contract import validate_contract
 from ..workloads.planner import build_plan
 
 
-PLANNER_VERSION = "0.1.0"
+PLANNER_VERSION = "0.3.0"
 INTAKE_SCHEMA = "srh.client-intake.v1"
 OUTPUT_SCHEMA = "srh.capacity-plan.v1"
 GIB = 1024 ** 3
@@ -198,6 +198,20 @@ def _estimate_candidate(hardware: dict[str, Any], model: dict[str, Any], bits: i
     context_max = req["input_tokens"]["max"] + req["output_tokens"]["max"]
     weights_gib = model["total_parameters_b"] * 1e9 * bits / 8 / GIB * 1.08
     active_weights_gib = model["active_parameters_b"] * 1e9 * bits / 8 / GIB
+    # Sparse models do not behave exactly like a dense model with the same
+    # active parameter count. Routing, expert dispatch and traffic from the
+    # resident expert set depend heavily on kernels and topology. This small,
+    # explicit surcharge prevents a MoE archetype from receiving an identical
+    # projection to a dense archetype while keeping the estimate conservative
+    # enough for shortlist screening. It is not a measured model coefficient.
+    is_moe = model["architecture"] == "mixture-of-experts"
+    inactive_weights_gib = max(0.0, weights_gib / 1.08 - active_weights_gib)
+    routing_overhead = 1.15 if is_moe else 1.0
+    inactive_weight_traffic_fraction = 0.02 if is_moe else 0.0
+    effective_decode_weights_gib = (
+        active_weights_gib * routing_overhead
+        + inactive_weights_gib * inactive_weight_traffic_fraction
+    )
     kv_bytes_per_token = 2 * model["layers"] * model["kv_heads"] * model["head_dim"] * 2
     kv_gib = kv_bytes_per_token * context_p95 * concurrency / GIB
     runtime_gib = max(4.0, weights_gib * 0.12)
@@ -213,14 +227,43 @@ def _estimate_candidate(hardware: dict[str, Any], model: dict[str, Any], bits: i
     if max_power_w is not None and hardware["power_w"] > max_power_w:
         blockers.append("POWER_LIMIT_EXCEEDED")
     assumptions = hardware["performance_assumptions"]
-    batching_gain = 1 + 0.5 * math.log2(max(1, concurrency))
-    aggregate_decode_tps = hardware["memory_bandwidth_gbps"] / max(active_weights_gib, 0.1) * assumptions["decode_efficiency"] * batching_gain
-    per_user_decode_tps = aggregate_decode_tps / concurrency
-    prefill_tps = aggregate_decode_tps * assumptions["prefill_multiplier"]
-    pressure = 1 + 0.12 * (concurrency - 1)
-    ttfa_ms = assumptions["fixed_latency_ms"] + req["input_tokens"]["p95"] / max(prefill_tps, 1) * 1000 * pressure
+    anchor = assumptions.get("interactive_decode_anchor")
+    if anchor and not is_moe:
+        precision_factor = float(anchor["precision_factors"].get(str(bits), 1.0))
+        parameter_ratio = float(anchor["active_parameters_b"]) / model["active_parameters_b"]
+        single_user_decode_tps = (
+            float(anchor["tokens_per_second_per_request"])
+            * parameter_ratio ** float(anchor["parameter_scaling_exponent"])
+            * precision_factor
+        )
+        projection_method = "VENDOR_INTERACTIVE_ANCHOR_SCALED"
+        projection_source = {"name": anchor["source"], "url": anchor["url"]}
+        uncertainty = 0.30
+    else:
+        single_user_decode_tps = (
+            hardware["memory_bandwidth_gbps"]
+            / max(effective_decode_weights_gib, 0.1)
+            * assumptions["decode_efficiency"]
+        )
+        projection_method = "MEMORY_ROOFLINE_HEURISTIC"
+        projection_source = None
+        uncertainty = 0.60 if is_moe else 0.45
+    # Continuous batching does not split a fixed single-request token rate by
+    # the number of users. Requests advance together in a batch until the GPU
+    # saturates. Model the measured per-request retention at concurrency 4 and
+    # expose aggregate throughput as per-user throughput × active users.
+    concurrency_steps = math.log2(max(1, concurrency)) / 2
+    decode_retention = assumptions["decode_concurrency_retention_at_4"] ** concurrency_steps
+    prefill_retention = assumptions["prefill_concurrency_retention_at_4"] ** concurrency_steps
+    per_user_decode_tps = single_user_decode_tps * decode_retention
+    aggregate_decode_tps = per_user_decode_tps * concurrency
+    per_request_prefill_tps = (
+        single_user_decode_tps
+        * assumptions["prefill_multiplier"]
+        * prefill_retention
+    )
+    ttfa_ms = assumptions["fixed_latency_ms"] + req["input_tokens"]["p95"] / max(per_request_prefill_tps, 1) * 1000
     e2e_ms = ttfa_ms + req["output_tokens"]["p95"] / max(per_user_decode_tps, 0.1) * 1000
-    uncertainty = 0.45
     metrics = {
         "ttfa_p95_ms": {**_metric_range(ttfa_ms, uncertainty), "unit": "ms", "provenance": "ESTIMATED"},
         "end_to_end_p95_ms": {**_metric_range(e2e_ms, uncertainty), "unit": "ms", "provenance": "ESTIMATED"},
@@ -233,13 +276,27 @@ def _estimate_candidate(hardware: dict[str, Any], model: dict[str, Any], bits: i
         and metrics["end_to_end_p95_ms"]["point"] <= objectives["end_to_end_p95_ms"]
         and metrics["answer_tokens_per_second_per_user"]["point"] >= objectives["answer_tokens_per_second_min"]
     )
+    conservative_meets = (
+        metrics["ttfa_p95_ms"]["high"] <= objectives["ttfa_p95_ms"]
+        and metrics["end_to_end_p95_ms"]["high"] <= objectives["end_to_end_p95_ms"]
+        and metrics["answer_tokens_per_second_per_user"]["low"] >= objectives["answer_tokens_per_second_min"]
+    )
+    optimistic_meets = (
+        metrics["ttfa_p95_ms"]["low"] <= objectives["ttfa_p95_ms"]
+        and metrics["end_to_end_p95_ms"]["low"] <= objectives["end_to_end_p95_ms"]
+        and metrics["answer_tokens_per_second_per_user"]["high"] >= objectives["answer_tokens_per_second_min"]
+    )
+    headroom = (usable_gib - required_gib) / usable_gib
     if blockers:
         status = "NOT_FEASIBLE"
+    elif conservative_meets and headroom >= 0.15:
+        status = "STRONG_FIT"
     elif point_meets:
-        status = "POTENTIAL_FIT"
+        status = "CONDITIONAL_FIT"
+    elif optimistic_meets:
+        status = "BORDERLINE_FIT"
     else:
         status = "UNLIKELY_FIT"
-    headroom = (usable_gib - required_gib) / usable_gib
     latency_ratio = objectives["end_to_end_p95_ms"] / max(metrics["end_to_end_p95_ms"]["point"], 1)
     speed_ratio = metrics["answer_tokens_per_second_per_user"]["point"] / objectives["answer_tokens_per_second_min"]
     score = -1000 if blockers else round(50 * max(-1, headroom) + 25 * min(2, latency_ratio) + 25 * min(2, speed_ratio), 3)
@@ -252,6 +309,29 @@ def _estimate_candidate(hardware: dict[str, Any], model: dict[str, Any], bits: i
         "final_recommendation_status": "MEASUREMENT_REQUIRED",
         "screening_score": score,
         "blockers": blockers,
+        "assessment": {
+            "method": "UNCERTAINTY_BAND_AND_HARD_GATES_V1",
+            "rationale": {
+                "STRONG_FIT": "Even the conservative performance band meets every target and memory headroom is at least 15%.",
+                "CONDITIONAL_FIT": "The point estimate meets every target, but the uncertainty band or memory margin requires measurement.",
+                "BORDERLINE_FIT": "Only the optimistic edge of the estimate meets every target; benchmark priority is low unless this model class has a quality advantage.",
+                "UNLIKELY_FIT": "Even the optimistic performance band misses at least one target.",
+                "NOT_FEASIBLE": "A hard capacity, context, precision or power constraint is violated.",
+            }[status],
+            "hard_gates_pass": not blockers,
+            "conservative_band_meets_all_slos": conservative_meets,
+            "point_estimate_meets_all_slos": point_meets,
+            "optimistic_band_meets_all_slos": optimistic_meets,
+            "memory_headroom_fraction": round(headroom, 4),
+            "gates": {
+                "memory": {"actual_gib": round(required_gib, 2), "maximum_gib": round(usable_gib, 2), "pass": required_gib <= usable_gib},
+                "context": {"actual_tokens": context_max, "maximum_tokens": model["maximum_context_tokens"], "pass": context_max <= model["maximum_context_tokens"]},
+                "power": {"actual_w": hardware["power_w"], "maximum_w": max_power_w, "pass": max_power_w is None or hardware["power_w"] <= max_power_w},
+                "ttfa_point": {"actual_ms": metrics["ttfa_p95_ms"]["point"], "maximum_ms": objectives["ttfa_p95_ms"], "pass": metrics["ttfa_p95_ms"]["point"] <= objectives["ttfa_p95_ms"]},
+                "end_to_end_point": {"actual_ms": metrics["end_to_end_p95_ms"]["point"], "maximum_ms": objectives["end_to_end_p95_ms"], "pass": metrics["end_to_end_p95_ms"]["point"] <= objectives["end_to_end_p95_ms"]},
+                "answer_speed_point": {"actual_tps": metrics["answer_tokens_per_second_per_user"]["point"], "minimum_tps": objectives["answer_tokens_per_second_min"], "pass": metrics["answer_tokens_per_second_per_user"]["point"] >= objectives["answer_tokens_per_second_min"]},
+            },
+        },
         "capacity": {
             "usable_memory_gib": round(usable_gib, 2),
             "estimated_weight_memory_gib": round(weights_gib, 2),
@@ -262,9 +342,33 @@ def _estimate_candidate(hardware: dict[str, Any], model: dict[str, Any], bits: i
             "provenance": "CALCULATED",
         },
         "performance_projection": {
-            "confidence": "LOW",
+            "confidence": "MEDIUM_LOW" if anchor and not is_moe else "LOW",
             "uncertainty_fraction": uncertainty,
-            "assumption_provenance": assumptions["provenance"],
+            "assumption_provenance": "VENDOR_BENCHMARK_SCALED" if anchor and not is_moe else assumptions["provenance"],
+            "calibration_status": "SCALED_FROM_VENDOR_INTERACTIVE_ANCHOR" if anchor and not is_moe else "UNCALIBRATED_FOR_THIS_HARDWARE_MODEL_PAIR",
+            "projection_method": projection_method,
+            "projection_source": projection_source,
+            "metric_basis": {
+                "decode": (
+                    "VENDOR_INTERACTIVE_DECODE_ANCHOR_SCALED"
+                    if anchor and not is_moe
+                    else "MEMORY_ROOFLINE_SRH_HEURISTIC"
+                ),
+                "ttfa": "SRH_PREFILL_HEURISTIC",
+                "memory": "ARCHETYPE_CAPACITY_CALCULATION",
+            },
+            "concurrency_model": {
+                "single_user_decode_tps": round(single_user_decode_tps, 3),
+                "decode_retention_fraction": round(decode_retention, 4),
+                "per_request_prefill_tps": round(per_request_prefill_tps, 3),
+                "basis": "continuous batching per-request retention",
+            },
+            "architecture_adjustment": {
+                "routing_overhead_multiplier": routing_overhead,
+                "inactive_weight_traffic_fraction": inactive_weight_traffic_fraction,
+                "effective_decode_weights_gib": round(effective_decode_weights_gib, 3),
+                "provenance": "SRH_HEURISTIC",
+            },
             "metrics": metrics,
             "provenance": "ESTIMATED",
             "quality": "NOT_SIMULATED_MEASUREMENT_REQUIRED",
@@ -274,12 +378,31 @@ def _estimate_candidate(hardware: dict[str, Any], model: dict[str, Any], bits: i
 
 def _shortlist(candidates: list[dict[str, Any]], size: int = 3) -> list[str]:
     eligible = [candidate for candidate in candidates if candidate["screening_status"] != "NOT_FEASIBLE"]
-    eligible.sort(key=lambda value: (value["screening_status"] != "POTENTIAL_FIT", -value["screening_score"], value["candidate_id"]))
+    status_rank = {"STRONG_FIT": 0, "CONDITIONAL_FIT": 1, "BORDERLINE_FIT": 2, "UNLIKELY_FIT": 3}
+    eligible.sort(key=lambda value: (status_rank[value["screening_status"]], -value["screening_score"], value["candidate_id"]))
     selected: list[dict[str, Any]] = []
     hardware_seen: set[str] = set()
+    model_ids = list(dict.fromkeys(candidate["model"]["id"] for candidate in eligible))
+    for model_id in model_ids:
+        options = [candidate for candidate in eligible if candidate["model"]["id"] == model_id]
+        best = options[0]
+        # Hardware diversity is useful only among genuinely comparable options.
+        # Never downgrade a model class to a weaker screening tier merely to
+        # display another device in the shortlist.
+        comparable_diverse = next((
+            value for value in options
+            if value["hardware"]["id"] not in hardware_seen
+            and value["screening_status"] == best["screening_status"]
+            and value["screening_score"] >= best["screening_score"] - 15
+        ), None)
+        candidate = comparable_diverse or best
+        selected.append(candidate)
+        hardware_seen.add(candidate["hardware"]["id"])
+        if len(selected) == size:
+            return [value["candidate_id"] for value in selected]
     for candidate in eligible:
         hardware_id = candidate["hardware"]["id"]
-        if hardware_id not in hardware_seen:
+        if hardware_id not in hardware_seen and candidate not in selected:
             selected.append(candidate)
             hardware_seen.add(hardware_id)
         if len(selected) == size:
@@ -315,7 +438,7 @@ def build_capacity_plan(intake: dict[str, Any], catalogs: dict[str, dict[str, An
     selected_hardware = set(exploration["hardware_ids"])
     relevant_evidence = [item for item in catalogs["evidence"]["items"] if item.get("hardware_id") in selected_hardware]
     experiment_plan = build_plan(contract)
-    shortlist = _shortlist(candidates)
+    shortlist = _shortlist(candidates, size=min(8, max(3, len(exploration["model_ids"]))))
     return {
         "schema": OUTPUT_SCHEMA,
         "planner_version": PLANNER_VERSION,
@@ -334,14 +457,15 @@ def build_capacity_plan(intake: dict[str, Any], catalogs: dict[str, dict[str, An
             "version": PLANNER_VERSION,
             "weight_memory": "total_parameters × weight_bits / 8 × 1.08 planning overhead",
             "kv_cache": "2 × layers × KV heads × head dimension × 2 bytes × p95 context × concurrency",
-            "decode": "memory bandwidth / active weight size × SRH heuristic efficiency × batching gain",
-            "prefill": "projected aggregate decode × SRH heuristic prefill multiplier",
-            "range": "point estimate ±45%",
-            "provenance": "SRH_HEURISTIC",
+            "decode": "vendor interactive anchor when available; otherwise memory bandwidth / effective active weight traffic × explicit efficiency",
+            "concurrency": "continuous-batching per-request retention; aggregate throughput = per-request rate × concurrent users",
+            "prefill": "single-request decode × explicit prefill multiplier × concurrency retention",
+            "range": "vendor-anchored dense estimate ±30%; unanchored dense ±45%; sparse MoE ±60%",
+            "provenance": "MIXED_VENDOR_ANCHOR_AND_SRH_HEURISTIC",
         },
         "decision_boundary": {
             "status": "PRELIMINARY_CAPACITY_SCREENING",
-            "message": "The shortlist uses calculated capacity and low-confidence performance estimates. It is not a deployment recommendation.",
+            "message": "The shortlist uses calculated capacity and mixed-confidence performance projections. It is not a deployment recommendation.",
             "measured_evidence_required": True,
             "quality_is_not_simulated": True,
             "compatible_with_profile_recommender": False,
@@ -350,7 +474,9 @@ def build_capacity_plan(intake: dict[str, Any], catalogs: dict[str, dict[str, An
         "screening_summary": {
             "candidate_count": len(candidates),
             "feasible_count": sum(candidate["screening_status"] != "NOT_FEASIBLE" for candidate in candidates),
-            "potential_fit_count": sum(candidate["screening_status"] == "POTENTIAL_FIT" for candidate in candidates),
+            "strong_fit_count": sum(candidate["screening_status"] == "STRONG_FIT" for candidate in candidates),
+            "conditional_fit_count": sum(candidate["screening_status"] == "CONDITIONAL_FIT" for candidate in candidates),
+            "borderline_fit_count": sum(candidate["screening_status"] == "BORDERLINE_FIT" for candidate in candidates),
             "shortlist_candidate_ids": shortlist,
         },
         "candidates": candidates,

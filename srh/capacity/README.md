@@ -20,6 +20,58 @@ results to PDF. No client documents are uploaded by this interface. After labora
 tests, the same page can import a candidate manifest and observed evidence JSON files
 to run the measured Deployment Recommender locally.
 
+See [`docs/ESTIMATOR-METHODOLOGY.md`](../../docs/ESTIMATOR-METHODOLOGY.md) for the
+equations, benchmark anchors, concurrency treatment and decision boundary.
+
+The measured section provides separate selectors for the first two evidence files,
+plus an optional multi-file selector. **Load measured Qwen demo** loads the three
+observed GB10 profiles from the first SRH campaign together with their original
+Workload Contract and the bundled test manifest. This demonstrates the complete UI
+flow without presenting those measurements as evidence for the current client.
+
+## Test a model already running on the machine
+
+After calculating the client shortlist, open **Test real models and build the
+recommendation**. The interface discovers OpenAI-compatible endpoints bound to
+localhost, currently including the vLLM endpoint on port `18300`. For each selected
+model choose:
+
+- quick, representative or stress input profile;
+- one, three or five repetitions;
+- one to eight concurrent users.
+
+The readiness test sends a synthetic Italian construction-tender scenario sized from
+the current Workload Contract. It observes first-answer latency, complete latency,
+answer throughput, request errors and deterministic extraction/citation quality. Runs
+with the same profile, concurrency and repetition count form one comparable session;
+quality and every SLO gate are applied before latency ranking.
+
+The UI reports the number of answer tokens actually produced. Its observed end-to-end
+time therefore describes the short extraction response. A separate planning bridge
+shows how long generation of the contract's p95 output would take at the observed
+minimum rate, without presenting that extrapolation as a measured stress result.
+
+This is real local inference evidence for the synthetic readiness scenario. It is not
+client acceptance evidence: the final campaign still requires client documents,
+expert-validated ground truth, OCR/retrieval components and the exact application.
+Only loopback HTTP endpoints are accepted by the local runner.
+
+## Simulate a named model not installed
+
+The same selector includes DeepSeek V4 Flash/Pro and Mistral Small 4/Large 3 from a
+versioned reference catalog. Their parameter counts, context, license labels and
+published benchmark notes link to vendor sources. Selecting one runs the SRH capacity
+projection against the chosen hardware. The UI labels this output as a reference
+simulation: vendor benchmarks on unrelated tasks never become SRH measurements or a
+prediction of client quality.
+
+Bundled files:
+
+- `examples/qwen-measured-demo-manifest.json`;
+- `examples/qwen-measured-demo/baseline-8192.json`;
+- `examples/qwen-measured-demo/prefill-4096.json`;
+- `examples/qwen-measured-demo/prefill-16384.json`.
+
 The bundled construction-tender example can also be processed from the CLI:
 
 ```bash
@@ -38,10 +90,23 @@ python3 -m srh.capacity.planner \
 3. **Capacity screening** calculates weight, KV-cache and runtime-reserve memory.
    Hard memory, context and power blockers eliminate impossible combinations.
 4. **Performance projection** produces a broad planning range using hardware
-   bandwidth, active model parameters, concurrency and explicit SRH heuristic
-   coefficients. Its confidence is `LOW` until comparable measurements calibrate it.
-5. **Candidate generation** selects up to three feasible candidates, preferring
-   hardware diversity so a pilot compares meaningful deployment classes.
+   bandwidth, active model parameters and explicit concurrency retention. When a
+   comparable interactive vendor benchmark exists, the planner scales that anchor by
+   active model size and precision and identifies the source in every candidate.
+   Other combinations remain `LOW`-confidence memory-roofline heuristics.
+   Candidates receive a benchmark priority (high, conditional, low or unlikely),
+   or are marked infeasible, from hard gates plus conservative, point and
+   optimistic uncertainty bands. This is not a production-readiness label.
+
+The concurrency calculation models continuous batching: each request retains a
+measured or assumed fraction of its single-request decode rate, while aggregate
+throughput is the per-request rate multiplied by concurrent users. It does not divide
+single-request performance by user count. H100 dense projections are currently tied
+to NVIDIA's published Llama 3 8B interactive INT4/FP8/FP16 measurements; extrapolated
+model sizes remain planning estimates, not measured checkpoints.
+5. **Candidate generation** selects up to eight feasible candidates, preferring
+   every selected model archetype first and hardware diversity where possible. The
+   meeting UI also exposes the full candidate matrix and the reason for exclusions.
 6. **Benchmark handoff** generates the existing representative experiment plan.
    Exact model snapshot, container, runtime and scenario pack must be resolved before
    execution.
@@ -92,7 +157,9 @@ ground truth, evaluator, response policy and measurement protocol must be identi
 - data residency and maximum device power;
 - model families the client or SRH wants to evaluate.
 
-The planner explores generic model **archetypes** for sizing. Names such as Qwen,
+The planner explores generic model **archetypes** for sizing: dense 3B, 8B, 14B,
+32B and 70B, plus sparse MoE classes from 30B/3B active through 235B/22B active.
+Names such as Qwen,
 DeepSeek or Llama are carried into the benchmark handoff, but the planner makes no
 quality or licensing claim about them. They must be resolved to exact checkpoints
 and evaluated on the client scenario.
@@ -148,7 +215,8 @@ catalog rather than an embedded constant.
 
 ## Current limitations
 
-- the model catalog contains sizing archetypes, not named checkpoint profiles;
+- named reference entries are sourced planning inputs, not installed checkpoints or
+  measured client-quality profiles;
 - performance is a low-confidence range and is not yet statistically calibrated;
 - the web UI does not ingest documents or build scenario packs;
 - OCR, vector retrieval and application latency are outside the current projection;

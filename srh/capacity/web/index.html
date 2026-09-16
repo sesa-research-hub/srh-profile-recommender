@@ -6,6 +6,7 @@
   <title>SRH Capacity Planner</title>
   <link rel="stylesheet" href="/app.css">
   <link rel="stylesheet" href="/measured.css">
+  <link rel="stylesheet" href="/responsive-tables.css">
 </head>
 <body>
   <header class="hero">
@@ -35,7 +36,7 @@
         <div class="grid two">
           <label>Nome impresa o progetto<input name="name" value="Ufficio gare — pilot AI privata" required></label>
           <label>Identificativo assessment<input name="id" value="construction-tenders-pilot" pattern="[a-z0-9][a-z0-9._-]*" required></label>
-          <label>Tipo di utilizzo<select name="workload_class"><option value="mixed">Analisi documenti + bozze</option><option value="rag">Domande e risposte sui documenti</option><option value="document-analysis">Analisi documentale</option><option value="extraction">Estrazione strutturata</option></select></label>
+          <label>Tipo di utilizzo<select name="workload_class"><option value="mixed">Analisi documenti + bozze</option><option value="rag">Domande e risposte sui documenti (RAG)</option><option value="document-analysis">Analisi e confronto documentale</option><option value="tender-drafting">Bozze per gare, offerte e relazioni</option><option value="extraction">Estrazione strutturata di dati</option><option value="summarization">Riassunti e sintesi operative</option><option value="classification">Classificazione e smistamento pratiche</option><option value="knowledge-assistant">Assistente sulla conoscenza aziendale</option><option value="customer-service">Assistenza clienti e operatori</option><option value="technical-support">Supporto tecnico e manutenzione</option><option value="legal-compliance">Revisione legale e compliance</option><option value="hr-assistant">Assistente HR e procedure interne</option><option value="code-assistant">Assistente sviluppo software</option></select></label>
           <label>Residenza dei dati<select name="data_residency"><option value="on-premises">Presso il cliente</option><option value="srh-lab">Laboratorio SRH</option><option value="private-cloud">Cloud privato</option></select></label>
           <label class="wide">Famiglie di modelli da provare, facoltative<input name="requested_models" value="Qwen, DeepSeek, Llama" placeholder="es. Qwen, DeepSeek, Llama"></label>
         </div>
@@ -92,21 +93,42 @@
       <div class="notice"><strong>Stima di pianificazione.</strong> Capacità calcolata e prestazioni stimate non sostituiscono le misure. La qualità verrà valutata sui capitolati del cliente.</div>
       <div id="translated" class="stats"></div>
       <div id="shortlist"></div>
+      <div id="model-coverage"></div>
+      <details class="candidate-matrix"><summary>Vedi tutte le combinazioni analizzate</summary><div id="candidate-matrix"></div></details>
       <div class="result-grid"><div class="panel compact"><h3>Piano di prova</h3><div id="test-plan"></div></div><div class="panel compact"><h3>Assunzioni e copertura</h3><div id="assumptions"></div></div></div>
       <details class="panel measured">
-        <summary>Recommendation verificata — disponibile dopo i test</summary>
-        <p>Importa il manifest dei candidati e almeno due evidenze osservate. Il confronto avviene localmente e richiede scenario, evaluator, esperimento e protocollo identici.</p>
-        <div class="grid two">
-          <label>Manifest candidati JSON<input id="manifest-file" type="file" accept="application/json,.json"></label>
-          <label>Evidenze misurate JSON<input id="evidence-files" type="file" accept="application/json,.json" multiple></label>
+        <summary>Misura modelli reali e confrontali con gli obiettivi</summary>
+        <p>Il planner rileva i runtime OpenAI-compatible già attivi sul DGX. Il test locale misura una breve estrazione documentale e mostra separatamente avvio, lunghezza realmente prodotta, velocità e qualità. I modelli di riferimento restano simulazioni dichiarate.</p>
+        <div class="runtime-box">
+          <div class="grid two">
+            <label>Modello da valutare<select id="runtime-model-select"><option value="">Rilevamento in corso…</option></select></label>
+            <label>Profilo del test<select id="local-test-profile"><option value="quick">Rapido — contesto ridotto</option><option value="representative" selected>Rappresentativo — caso tipico</option><option value="stress">Stress — caso impegnativo</option></select></label>
+            <label>Ripetizioni<select id="local-repetitions"><option value="1">1 — prova tecnica</option><option value="3" selected>3 — confronto preliminare</option><option value="5">5 — evidenza esplorativa</option></select></label>
+            <label>Utenti simultanei<input id="local-concurrency" type="number" min="1" max="8" value="1"></label>
+          </div>
+          <div id="runtime-model-info" class="runtime-info"></div>
+          <div class="buttons"><button id="refresh-local-models" class="button secondary" type="button">Aggiorna modelli locali</button><button id="run-model-test" class="button primary" type="button">Avvia valutazione</button></div>
+          <div id="local-test-result"></div>
         </div>
-        <div class="measured-action"><button id="evaluate-measured" class="button primary" type="button">Valuta evidenze misurate</button></div>
-        <div id="measured-result"></div>
+        <details class="json-import">
+          <summary>Opzione avanzata: importa manifest ed evidenze JSON</summary>
+          <p>Usa questa modalità per campagne già eseguite su altri sistemi o per riprodurre la precedente campagna GB10.</p>
+          <div class="demo-row"><div class="buttons"><button id="load-measured-demo" class="button secondary" type="button">Carica demo con le misure Qwen precedenti</button><button id="download-demo-manifest" class="button secondary" type="button">Scarica manifest demo</button></div><span id="measured-files">Nessun pacchetto caricato.</span></div>
+          <div class="grid two">
+            <label>Contratto workload JSON <small>(facoltativo: usa quello corrente)</small><input id="measured-contract-file" type="file" accept="application/json,.json"></label>
+            <label>Manifest candidati JSON<input id="manifest-file" type="file" accept="application/json,.json"></label>
+            <label>Evidenza misurata 1 JSON<input class="evidence-file" type="file" accept="application/json,.json"></label>
+            <label>Evidenza misurata 2 JSON<input class="evidence-file" type="file" accept="application/json,.json"></label>
+            <label>Altre evidenze JSON <small>(facoltative)</small><input id="extra-evidence-files" class="evidence-file" type="file" accept="application/json,.json" multiple></label>
+          </div>
+          <div class="measured-action"><button id="evaluate-measured" class="button primary" type="button">Valuta evidenze importate</button></div>
+          <div id="measured-result"></div>
+        </details>
       </details>
     </section>
     <div id="error" class="error hidden"></div>
   </main>
-  <footer>SRH Profile Recommender · Capacity Planner 0.1 · Le decisioni finali richiedono evidenze misurate.</footer>
+  <footer>SRH Profile Recommender · Capacity Planner 0.3 · Le decisioni finali richiedono evidenze misurate.</footer>
   <script src="/app.js"></script>
 </body>
 </html>

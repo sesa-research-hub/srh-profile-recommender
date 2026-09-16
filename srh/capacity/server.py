@@ -15,17 +15,24 @@ from urllib.parse import urlparse
 
 from .catalog import load_catalogs
 from .planner import CapacityPlanningError, build_capacity_plan
+from .local_runtime import discover_local_models, run_local_benchmark
+from .reference import simulate_reference_model
 from ..recommendation.deployment import recommend_deployment
 
 
 ROOT = Path(__file__).resolve().parent
 WEB = ROOT / "web"
 EXAMPLE = ROOT / "examples" / "construction-tenders-intake.json"
+MEASURED_DEMO = ROOT / "examples" / "qwen-measured-demo"
+MEASURED_DEMO_MANIFEST = ROOT / "examples" / "qwen-measured-demo-manifest.json"
+MEASURED_DEMO_CONTRACT = ROOT.parent / "workloads" / "examples" / "document-rag-sme.json"
+MEASURED_DEMO_EVIDENCE = ("baseline-8192.json", "prefill-4096.json", "prefill-16384.json")
 MAX_BODY_BYTES = 32 * 1024 * 1024
 STATIC = {
     "/": ("index.html", "text/html; charset=utf-8"),
     "/app.css": ("app.css", "text/css; charset=utf-8"),
     "/measured.css": ("measured.css", "text/css; charset=utf-8"),
+    "/responsive-tables.css": ("responsive-tables.css", "text/css; charset=utf-8"),
     "/app.js": ("app.js", "text/javascript; charset=utf-8"),
 }
 
@@ -55,8 +62,22 @@ class CapacityHandler(BaseHTTPRequestHandler):
         if path == "/api/catalog":
             self._json(200, load_catalogs())
             return
+        if path == "/api/local-models":
+            self._json(200, {"models": discover_local_models()})
+            return
         if path == "/api/example":
             self._json(200, json.loads(EXAMPLE.read_text(encoding="utf-8")))
+            return
+        if path == "/api/measured-demo":
+            self._json(200, {
+                "notice": "Previously observed SRH evidence supplied only to exercise the interface; it is not evidence for the current client workload.",
+                "contract": json.loads(MEASURED_DEMO_CONTRACT.read_text(encoding="utf-8")),
+                "manifest": json.loads(MEASURED_DEMO_MANIFEST.read_text(encoding="utf-8")),
+                "evidences": [
+                    {"source": name, "evidence": json.loads((MEASURED_DEMO / name).read_text(encoding="utf-8"))}
+                    for name in MEASURED_DEMO_EVIDENCE
+                ],
+            })
             return
         item = STATIC.get(path)
         if item is None:
@@ -69,7 +90,7 @@ class CapacityHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
-        if path not in {"/api/plan", "/api/deployment-recommendation"}:
+        if path not in {"/api/plan", "/api/deployment-recommendation", "/api/local-benchmark", "/api/reference-simulation"}:
             self._json(404, {"error": "not found"})
             return
         try:
@@ -86,6 +107,27 @@ class CapacityHandler(BaseHTTPRequestHandler):
                 raise CapacityPlanningError("request root must be an object")
             if path == "/api/plan":
                 self._json(200, build_capacity_plan(payload))
+            elif path == "/api/local-benchmark":
+                contract = payload.get("contract")
+                if not isinstance(contract, dict):
+                    raise CapacityPlanningError("contract is required")
+                self._json(200, run_local_benchmark(
+                    endpoint=str(payload.get("endpoint", "")),
+                    model=str(payload.get("model", "")),
+                    contract=contract,
+                    profile=str(payload.get("profile", "representative")),
+                    repetitions=payload.get("repetitions", 3),
+                    concurrency=payload.get("concurrency", 1),
+                ))
+            elif path == "/api/reference-simulation":
+                contract = payload.get("contract")
+                hardware_ids = payload.get("hardware_ids")
+                if not isinstance(contract, dict) or not isinstance(hardware_ids, list):
+                    raise CapacityPlanningError("contract and hardware_ids are required")
+                self._json(200, simulate_reference_model(
+                    str(payload.get("model_id", "")), contract, hardware_ids,
+                    int(payload.get("weight_bits", 4)), payload.get("maximum_power_w"),
+                ))
             else:
                 contract = payload.get("contract")
                 manifest = payload.get("manifest")

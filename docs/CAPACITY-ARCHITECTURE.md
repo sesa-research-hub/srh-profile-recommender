@@ -35,6 +35,13 @@ Scenario Builder → Application Adapter → Benchmark Harness
 - CLI JSON/Markdown dossier generation;
 - retained boundary between estimates and observed evidence;
 - measured cross-hardware/model deployment comparison with license and cost gates.
+- local OpenAI-compatible model discovery and observed readiness tests;
+- sourced named-model reference simulations with a strict non-measured label;
+- uncertainty-band benchmark priorities with explicit capacity and SLO gates;
+- separate sparse-model routing allowance and wider MoE uncertainty, both marked
+  as uncalibrated SRH heuristics.
+- vendor-interactive performance anchors where comparable evidence exists, with
+  continuous-batching retention kept separate from aggregate throughput.
 
 ## Existing measured layer
 
@@ -49,7 +56,7 @@ Scenario Builder → Application Adapter → Benchmark Harness
 
 1. Scenario Builder for client documents and expert-validated ground truth.
 2. End-to-end RAG adapter with OCR/retrieval/reranking timing and quality.
-3. Exact named-model catalog with checkpoint, runtime and license metadata.
+3. Exact installable checkpoint recipes and automated license-artifact verification.
 4. Remote execution adapters for SRH lab, customer site and rented hardware.
 5. Calibrated estimator trained only on comparable observed evidence.
 6. Commercial cost catalog with dated quotations and lifecycle assumptions.

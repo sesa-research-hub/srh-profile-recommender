@@ -1,0 +1,35 @@
+{
+  "schema": "srh.deployment-candidates.v1",
+  "policy": "performance_first",
+  "purpose": "UI_DEMO_WITH_PREVIOUSLY_OBSERVED_SRH_EVIDENCE",
+  "notice": "License approvals and costs below are demonstration metadata, not a legal or commercial assessment.",
+  "candidates": [
+    {
+      "profile_id": "srh-3a277bcdcd97",
+      "label": "GB10 · prefill budget 8192",
+      "license_review_status": "approved",
+      "license_review_basis": "DEMO_ONLY_NOT_LEGAL_APPROVAL",
+      "estimated_three_year_cost_eur": null,
+      "cost_provenance": null,
+      "device_power_w": 240
+    },
+    {
+      "profile_id": "srh-641df345439d",
+      "label": "GB10 · prefill budget 4096",
+      "license_review_status": "approved",
+      "license_review_basis": "DEMO_ONLY_NOT_LEGAL_APPROVAL",
+      "estimated_three_year_cost_eur": null,
+      "cost_provenance": null,
+      "device_power_w": 240
+    },
+    {
+      "profile_id": "srh-879ed77c711d",
+      "label": "GB10 · prefill budget 16384",
+      "license_review_status": "approved",
+      "license_review_basis": "DEMO_ONLY_NOT_LEGAL_APPROVAL",
+      "estimated_three_year_cost_eur": null,
+      "cost_provenance": null,
+      "device_power_w": 240
+    }
+  ]
+}

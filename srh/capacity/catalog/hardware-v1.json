@@ -1,7 +1,7 @@
 {
   "schema": "srh.hardware-catalog.v1",
-  "version": "1.0.0",
-  "updated_at": "2026-09-15",
+  "version": "1.1.0",
+  "updated_at": "2026-09-16",
   "items": [
     {
       "id": "nvidia-gb10-128gb",
@@ -19,7 +19,9 @@
         "provenance": "SRH_HEURISTIC",
         "decode_efficiency": 0.42,
         "prefill_multiplier": 55,
-        "fixed_latency_ms": 180
+        "fixed_latency_ms": 180,
+        "decode_concurrency_retention_at_4": 0.8,
+        "prefill_concurrency_retention_at_4": 0.55
       },
       "specification_provenance": {
         "type": "VENDOR_REPORTED",
@@ -44,7 +46,9 @@
         "provenance": "SRH_HEURISTIC",
         "decode_efficiency": 0.25,
         "prefill_multiplier": 70,
-        "fixed_latency_ms": 120
+        "fixed_latency_ms": 120,
+        "decode_concurrency_retention_at_4": 0.85,
+        "prefill_concurrency_retention_at_4": 0.65
       },
       "specification_provenance": {
         "type": "VENDOR_REPORTED",
@@ -69,7 +73,36 @@
         "provenance": "SRH_HEURISTIC",
         "decode_efficiency": 0.2,
         "prefill_multiplier": 90,
-        "fixed_latency_ms": 90
+        "fixed_latency_ms": 90,
+        "decode_concurrency_retention_at_4": 0.89,
+        "prefill_concurrency_retention_at_4": 0.72,
+        "interactive_decode_anchor": {
+          "model": "Llama 3 8B",
+          "active_parameters_b": 8,
+          "weight_bits": 4,
+          "tokens_per_second_per_request": 211.5,
+          "concurrency": 1,
+          "input_tokens": 2048,
+          "output_tokens": 512,
+          "runtime": "TensorRT-LLM 0.12.0",
+          "parameter_scaling_exponent": 0.7,
+          "parameter_scaling_basis": {
+            "second_model": "Llama 3 70B",
+            "second_active_parameters_b": 70,
+            "second_tokens_per_second_per_request": 47.13,
+            "weight_bits": 4
+          },
+          "precision_factors": {"4": 1.0, "8": 0.8073, "16": 0.6420},
+          "source": "NVIDIA TensorRT Model Optimizer Llama 3 PTQ benchmark",
+          "url": "https://developer.nvidia.com/blog/post-training-quantization-of-llms-with-nvidia-nemo-and-nvidia-tensorrt-model-optimizer/"
+        },
+        "concurrency_anchor": {
+          "model": "Llama 3.1 8B FP8",
+          "concurrency_1_itl_ms": 4.77,
+          "concurrency_5_itl_ms": 5.45,
+          "source": "NVIDIA NIM LLM benchmarking",
+          "url": "https://docs.nvidia.com/nim/benchmarking/llm/latest/performance-tables/llm-1_3-llama3_1-8b.html"
+        }
       },
       "specification_provenance": {
         "type": "VENDOR_REPORTED",
