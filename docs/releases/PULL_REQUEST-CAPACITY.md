@@ -14,6 +14,8 @@ to a controlled measurement campaign and a final evidence-based decision.
 - compares observed deployments across exact models and hardware with mandatory
   quality, SLO and license gates;
 - provides a local meeting interface, JSON/Markdown dossiers and CLI workflows.
+- includes the previous measured GB10 campaign as an explicitly scoped UI demo and
+  keeps its original workload separate from the current client assessment.
 
 ## Decision boundary
 

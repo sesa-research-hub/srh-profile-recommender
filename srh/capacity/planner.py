@@ -277,9 +277,17 @@ def _shortlist(candidates: list[dict[str, Any]], size: int = 3) -> list[str]:
     eligible.sort(key=lambda value: (value["screening_status"] != "POTENTIAL_FIT", -value["screening_score"], value["candidate_id"]))
     selected: list[dict[str, Any]] = []
     hardware_seen: set[str] = set()
+    model_ids = list(dict.fromkeys(candidate["model"]["id"] for candidate in eligible))
+    for model_id in model_ids:
+        options = [candidate for candidate in eligible if candidate["model"]["id"] == model_id]
+        candidate = next((value for value in options if value["hardware"]["id"] not in hardware_seen), options[0])
+        selected.append(candidate)
+        hardware_seen.add(candidate["hardware"]["id"])
+        if len(selected) == size:
+            return [value["candidate_id"] for value in selected]
     for candidate in eligible:
         hardware_id = candidate["hardware"]["id"]
-        if hardware_id not in hardware_seen:
+        if hardware_id not in hardware_seen and candidate not in selected:
             selected.append(candidate)
             hardware_seen.add(hardware_id)
         if len(selected) == size:
@@ -315,7 +323,7 @@ def build_capacity_plan(intake: dict[str, Any], catalogs: dict[str, dict[str, An
     selected_hardware = set(exploration["hardware_ids"])
     relevant_evidence = [item for item in catalogs["evidence"]["items"] if item.get("hardware_id") in selected_hardware]
     experiment_plan = build_plan(contract)
-    shortlist = _shortlist(candidates)
+    shortlist = _shortlist(candidates, size=min(8, max(3, len(exploration["model_ids"]))))
     return {
         "schema": OUTPUT_SCHEMA,
         "planner_version": PLANNER_VERSION,

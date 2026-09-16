@@ -21,6 +21,10 @@ from ..recommendation.deployment import recommend_deployment
 ROOT = Path(__file__).resolve().parent
 WEB = ROOT / "web"
 EXAMPLE = ROOT / "examples" / "construction-tenders-intake.json"
+MEASURED_DEMO = ROOT / "examples" / "qwen-measured-demo"
+MEASURED_DEMO_MANIFEST = ROOT / "examples" / "qwen-measured-demo-manifest.json"
+MEASURED_DEMO_CONTRACT = ROOT.parent / "workloads" / "examples" / "document-rag-sme.json"
+MEASURED_DEMO_EVIDENCE = ("baseline-8192.json", "prefill-4096.json", "prefill-16384.json")
 MAX_BODY_BYTES = 32 * 1024 * 1024
 STATIC = {
     "/": ("index.html", "text/html; charset=utf-8"),
@@ -57,6 +61,17 @@ class CapacityHandler(BaseHTTPRequestHandler):
             return
         if path == "/api/example":
             self._json(200, json.loads(EXAMPLE.read_text(encoding="utf-8")))
+            return
+        if path == "/api/measured-demo":
+            self._json(200, {
+                "notice": "Previously observed SRH evidence supplied only to exercise the interface; it is not evidence for the current client workload.",
+                "contract": json.loads(MEASURED_DEMO_CONTRACT.read_text(encoding="utf-8")),
+                "manifest": json.loads(MEASURED_DEMO_MANIFEST.read_text(encoding="utf-8")),
+                "evidences": [
+                    {"source": name, "evidence": json.loads((MEASURED_DEMO / name).read_text(encoding="utf-8"))}
+                    for name in MEASURED_DEMO_EVIDENCE
+                ],
+            })
             return
         item = STATIC.get(path)
         if item is None:

@@ -1,0 +1,1083 @@
+{
+  "schema": "srh.paired-response-experiment.v1",
+  "version": "0.1.0",
+  "generated_at": "2026-09-15T09:19:45.088645+00:00",
+  "workload": {
+    "id": "document-rag-sme",
+    "class": "rag"
+  },
+  "experiment": {
+    "experiment_id": "baseline-p50-c1",
+    "purpose": "Measure nominal single-user interactive latency and generation throughput.",
+    "concurrency": 1,
+    "request": {
+      "input_tokens": 8000,
+      "output_tokens": 300,
+      "percentile_class": "p50"
+    },
+    "cache_state": "warm"
+  },
+  "scenario": {
+    "id": "enterprise-orders-rag-v3",
+    "target_tokens": 8000,
+    "actual_tokens": 7976
+  },
+  "runtime": {
+    "endpoint": "http://localhost:18301/v1",
+    "model": "qwen3.8-flash-next"
+  },
+  "runtime_profile": {
+    "profile_id": "srh-879ed77c711d",
+    "profile_sha256": "879ed77c711da32ca450f1abfa4dd3dff508a2152c7c8e8b00d87c3c324982ad",
+    "capture_version": "0.2.0",
+    "execution_identity": {
+      "hardware": {
+        "architecture": "aarch64",
+        "gpu": {
+          "name": "NVIDIA GB10",
+          "driver": "580.173.02"
+        }
+      },
+      "container_image": {
+        "image_name": "sha256:2dccbf0ad24151bc52fb97cf0157a7f8d36b41e4a089a7c92c7154ff0ecb8b86",
+        "image_id": "sha256:2dccbf0ad24151bc52fb97cf0157a7f8d36b41e4a089a7c92c7154ff0ecb8b86"
+      },
+      "effective_runtime": {
+        "engine": "vllm",
+        "argv": [
+          "/usr/bin/python3",
+          "/usr/local/bin/vllm",
+          "serve",
+          "/hf/hub/models--RadixArk--Qwen3.8-Flash-Next-NVFP4/snapshots/7b719225242aacd3dbd3f9407468c2ee9a9d2594-fp8hybrid",
+          "--served-model-name",
+          "qwen3.8-flash-next",
+          "qwen3.8-flash-next-fast",
+          "--host",
+          "0.0.0.0",
+          "--port",
+          "8000",
+          "--load-format",
+          "safetensors",
+          "--max-model-len",
+          "262144",
+          "--max-num-seqs",
+          "8",
+          "--gpu-memory-utilization",
+          "0.80",
+          "--enable-prefix-caching",
+          "--enable-chunked-prefill",
+          "--max-num-batched-tokens",
+          "16384",
+          "-cc.cudagraph_mode=PIECEWISE",
+          "-cc.splitting_ops=[\"vllm::unified_attention_with_output\",\"vllm::unified_mla_attention_with_output\",\"vllm::mamba_mixer2\",\"vllm::mamba_mixer\",\"vllm::short_conv\",\"vllm::qwen3_8_flash_next_ple_short_conv\",\"vllm::qwen3_8_flash_next_qsa_with_output\",\"vllm::linear_attention\",\"vllm::qwen_gdn_attention_core\",\"vllm::qwen_gdn_attention_core_fused_norm_packed\",\"vllm::sparse_attn_indexer\",\"vllm::ple_mmap_lookup\"]",
+          "--no-enable-flashinfer-autotune",
+          "--kv-cache-dtype",
+          "auto",
+          "--enable-auto-tool-choice",
+          "--tool-call-parser",
+          "qwen3_coder",
+          "--reasoning-parser",
+          "qwen3",
+          "--speculative-config",
+          "{\"method\":\"mtp\",\"num_speculative_tokens\":2}"
+        ],
+        "process_environment": {
+          "VLLM_PLE_MMAP_WORKERS": "32",
+          "VLLM_QSA_EXACT_TOPK": "1",
+          "VLLM_ALLOW_LONG_MAX_MODEL_LEN": "0",
+          "VLLM_FP8_HYBRID": "1",
+          "VLLM_USE_DEEP_GEMM": "0",
+          "VLLM_PLE_MMAP": "1",
+          "VLLM_PLE_MMAP_PREWARM": "1",
+          "VLLM_USE_FLASHINFER_SAMPLER": "1"
+        },
+        "model": {
+          "path": "/hf/hub/models--RadixArk--Qwen3.8-Flash-Next-NVFP4/snapshots/7b719225242aacd3dbd3f9407468c2ee9a9d2594-fp8hybrid",
+          "snapshot": "7b719225242aacd3dbd3f9407468c2ee9a9d2594-fp8hybrid",
+          "repository": "RadixArk/Qwen3.8-Flash-Next-NVFP4",
+          "served_names": [
+            "qwen3.8-flash-next",
+            "qwen3.8-flash-next-fast"
+          ],
+          "load_format": "safetensors"
+        },
+        "scheduler": {
+          "max_model_len": "262144",
+          "max_num_seqs": "8",
+          "max_num_batched_tokens": "16384",
+          "chunked_prefill": true
+        },
+        "memory": {
+          "gpu_memory_utilization": "0.80",
+          "kv_cache_dtype": "auto"
+        },
+        "cache": {
+          "prefix_caching": true
+        },
+        "execution": {
+          "cudagraph_mode": "PIECEWISE",
+          "splitting_ops": "[\"vllm::unified_attention_with_output\",\"vllm::unified_mla_attention_with_output\",\"vllm::mamba_mixer2\",\"vllm::mamba_mixer\",\"vllm::short_conv\",\"vllm::qwen3_8_flash_next_ple_short_conv\",\"vllm::qwen3_8_flash_next_qsa_with_output\",\"vllm::linear_attention\",\"vllm::qwen_gdn_attention_core\",\"vllm::qwen_gdn_attention_core_fused_norm_packed\",\"vllm::sparse_attn_indexer\",\"vllm::ple_mmap_lookup\"]",
+          "flashinfer_autotune_disabled": true,
+          "speculative_config": {
+            "method": "mtp",
+            "num_speculative_tokens": 2
+          }
+        },
+        "capabilities": {
+          "auto_tool_choice": true,
+          "tool_call_parser": "qwen3_coder",
+          "reasoning_parser": "qwen3"
+        }
+      }
+    },
+    "provenance": {
+      "source": "live-runtime",
+      "effective_process_observed": true,
+      "declared_environment_used": false
+    }
+  },
+  "runtime_verification": {
+    "stable": true,
+    "end_profile_sha256": "879ed77c711da32ca450f1abfa4dd3dff508a2152c7c8e8b00d87c3c324982ad"
+  },
+  "comparison": {
+    "pack_sha256": "6aeb0bd7ca2b34e898bb66175d3d60524895f702e98518314c2534e2a534013b",
+    "response_contract": {
+      "modes": [
+        "probe",
+        "assistant"
+      ],
+      "default_mode": "assistant",
+      "structured_result_required": true,
+      "probe_max_tokens": 128,
+      "assistant_max_tokens": 1536
+    },
+    "quality_requirements": {
+      "grounding_required": true,
+      "citation_required": true,
+      "tool_call_correctness_required": false,
+      "structured_output_required": false,
+      "minimum_score": 0.95
+    },
+    "seed": 42,
+    "ground_truth": {
+      "schema": "srh.scenario-ground-truth.v1",
+      "scenario_id": "enterprise-orders-rag-v3",
+      "question": "Per il cliente Alfa, quale ordine ha consegna prevista il 18 settembre 2026 e quale attivita risulta ancora necessaria?",
+      "expected": {
+        "order": "A102",
+        "activity": "collaudo finale da eseguire",
+        "evidence_source_id": "SRC-TARGET-001"
+      },
+      "evaluation": {
+        "mode": "structured-final",
+        "marker": "SRH_RESULT:"
+      },
+      "forbidden_selections": [
+        "A103",
+        "B205",
+        "SRC-HARD-001",
+        "SRC-HARD-002",
+        "SRC-HARD-003"
+      ]
+    },
+    "evaluator_sha256": "99d12dc13def98cd0607f8f6235f8ca7c990e120817bc7f897365ed016f8c44e",
+    "executor_version": "0.3.0"
+  },
+  "protocol": {
+    "type": "paired-interleaved",
+    "repetitions": 5,
+    "reasoning_policy": "disabled",
+    "resolved_model_mode": "no-think",
+    "run_ids": {
+      "probe": "bd4582ac01ed",
+      "assistant": "6f88ffdf0ec9"
+    },
+    "mode_order": "alternating probe/assistant"
+  },
+  "summaries": {
+    "probe": {
+      "request_count": 5,
+      "failed_request_count": 0,
+      "ttft_seconds": {
+        "min": 5.3966,
+        "median": 5.5148,
+        "p95": 9.7085,
+        "p99": 9.7085,
+        "max": 9.7085
+      },
+      "ttfa_seconds": {
+        "min": 5.3966,
+        "median": 5.5148,
+        "p95": 9.7085,
+        "p99": 9.7085,
+        "max": 9.7085
+      },
+      "elapsed_seconds": {
+        "min": 6.3853,
+        "median": 6.5215,
+        "p95": 10.8616,
+        "p99": 10.8616,
+        "max": 10.8616
+      },
+      "answer_tokens_per_second": {
+        "min": 29.49,
+        "median": 34.39,
+        "p95": 34.85,
+        "p99": 34.85,
+        "max": 34.85
+      },
+      "batch_completion_tokens_per_second": {
+        "min": 3.22,
+        "median": 5.37,
+        "p95": 5.48,
+        "p99": 5.48,
+        "max": 5.48
+      },
+      "quality": {
+        "pass_rate": 1.0,
+        "score_mean": 1.0,
+        "score_min": 1.0
+      }
+    },
+    "assistant": {
+      "request_count": 5,
+      "failed_request_count": 0,
+      "ttft_seconds": {
+        "min": 5.3611,
+        "median": 5.4323,
+        "p95": 6.0076,
+        "p99": 6.0076,
+        "max": 6.0076
+      },
+      "ttfa_seconds": {
+        "min": 5.3611,
+        "median": 5.4323,
+        "p95": 6.0076,
+        "p99": 6.0076,
+        "max": 6.0076
+      },
+      "elapsed_seconds": {
+        "min": 12.7009,
+        "median": 15.0306,
+        "p95": 23.2596,
+        "p99": 23.2596,
+        "max": 23.2596
+      },
+      "answer_tokens_per_second": {
+        "min": 26.52,
+        "median": 28.11,
+        "p95": 30.49,
+        "p99": 30.49,
+        "max": 30.49
+      },
+      "batch_completion_tokens_per_second": {
+        "min": 16.93,
+        "median": 17.46,
+        "p95": 20.89,
+        "p99": 20.89,
+        "max": 20.89
+      },
+      "quality": {
+        "pass_rate": 1.0,
+        "score_mean": 1.0,
+        "score_min": 1.0
+      }
+    }
+  },
+  "timing_decomposition": {
+    "probe": {
+      "time_to_first_answer_seconds": 5.5148,
+      "post_first_token_seconds": 1.0067,
+      "end_to_end_seconds": 6.5215
+    },
+    "assistant": {
+      "time_to_first_answer_seconds": 5.4323,
+      "post_first_token_seconds": 9.5983,
+      "end_to_end_seconds": 15.0306
+    },
+    "comparison": {
+      "ttfa_delta_seconds": -0.0825,
+      "assistant_e2e_overhead_vs_probe_seconds": 8.5091
+    }
+  },
+  "slo_assessment": {
+    "probe": {
+      "checks": {
+        "ttfa_p95_ms": {
+          "target": 2000,
+          "actual": 9708.5,
+          "pass": false
+        },
+        "answer_tokens_per_second_min": {
+          "target": 15,
+          "actual": 29.49,
+          "pass": true
+        },
+        "end_to_end_p95_ms": {
+          "target": 45000,
+          "actual": 10861.6,
+          "pass": true
+        },
+        "error_rate_max": {
+          "target": 0.01,
+          "actual": 0.0,
+          "pass": true
+        },
+        "quality_minimum_score": {
+          "target": 0.95,
+          "actual": 1.0,
+          "pass": true
+        }
+      },
+      "pass": false
+    },
+    "assistant": {
+      "checks": {
+        "ttfa_p95_ms": {
+          "target": 2000,
+          "actual": 6007.6,
+          "pass": false
+        },
+        "answer_tokens_per_second_min": {
+          "target": 15,
+          "actual": 26.52,
+          "pass": true
+        },
+        "end_to_end_p95_ms": {
+          "target": 45000,
+          "actual": 23259.6,
+          "pass": true
+        },
+        "error_rate_max": {
+          "target": 0.01,
+          "actual": 0.0,
+          "pass": true
+        },
+        "quality_minimum_score": {
+          "target": 0.95,
+          "actual": 1.0,
+          "pass": true
+        }
+      },
+      "pass": false
+    }
+  },
+  "batches": {
+    "probe": [
+      {
+        "repetition": 1,
+        "concurrency": 1,
+        "cache_state": "warm",
+        "warmup": {
+          "elapsed_seconds": 1.5294,
+          "ttft_seconds": 1.4863,
+          "prompt_tokens": 25
+        },
+        "batch_elapsed_seconds": 10.8669,
+        "aggregate": {
+          "successful_requests": 1,
+          "failed_requests": 0,
+          "total_prompt_tokens": 8071,
+          "total_completion_tokens": 35,
+          "completion_tokens_per_second": 3.22,
+          "quality_pass_rate": 1.0,
+          "quality_score_mean": 1.0
+        },
+        "requests": [
+          {
+            "request_no": 1,
+            "success": true,
+            "worker_elapsed_seconds": 10.8633,
+            "performance": {
+              "mode": "no-think",
+              "elapsed_seconds": 10.8616,
+              "ttft_seconds": 9.7085,
+              "ttfa_seconds": 9.7085,
+              "reasoning_phase_seconds": 0.0,
+              "generation_seconds": 1.153,
+              "answer_generation_seconds": 1.153,
+              "prompt_tokens": 8071,
+              "completion_tokens": 35,
+              "reasoning_tokens": 0,
+              "answer_tokens": 35,
+              "total_tokens": 8106,
+              "total_generation_tokens_per_second": 29.49,
+              "reasoning_tokens_per_second": null,
+              "answer_tokens_per_second": 29.49,
+              "end_to_end_completion_tps": 3.22,
+              "reasoning_chunks": 0,
+              "answer_chunks": 12,
+              "reasoning_chars": 0,
+              "answer_chars": 107,
+              "chunks_received": 15,
+              "finish_reason": "stop"
+            },
+            "quality": {
+              "checks": {
+                "structured_result": true,
+                "expected_order": true,
+                "expected_activity": true,
+                "expected_evidence": true,
+                "no_forbidden_selection": true
+              },
+              "passed_checks": 5,
+              "total_checks": 5,
+              "score": 1.0,
+              "selected_result": {
+                "order": "A102",
+                "activity": "collaudo finale da eseguire",
+                "evidence_source_id": "SRC-TARGET-001"
+              },
+              "forbidden_selections_found": [],
+              "pass": true
+            },
+            "answer": "SRH_RESULT: {\"order\":\"A102\",\"activity\":\"collaudo finale da eseguire\",\"evidence_source_id\":\"SRC-TARGET-001\"}"
+          }
+        ]
+      },
+      {
+        "repetition": 2,
+        "concurrency": 1,
+        "cache_state": "warm",
+        "warmup": {
+          "elapsed_seconds": 0.3181,
+          "ttft_seconds": 0.2367,
+          "prompt_tokens": 25
+        },
+        "batch_elapsed_seconds": 6.6594,
+        "aggregate": {
+          "successful_requests": 1,
+          "failed_requests": 0,
+          "total_prompt_tokens": 8071,
+          "total_completion_tokens": 35,
+          "completion_tokens_per_second": 5.26,
+          "quality_pass_rate": 1.0,
+          "quality_score_mean": 1.0
+        },
+        "requests": [
+          {
+            "request_no": 1,
+            "success": true,
+            "worker_elapsed_seconds": 6.6589,
+            "performance": {
+              "mode": "no-think",
+              "elapsed_seconds": 6.6585,
+              "ttft_seconds": 5.6716,
+              "ttfa_seconds": 5.6716,
+              "reasoning_phase_seconds": 0.0,
+              "generation_seconds": 0.987,
+              "answer_generation_seconds": 0.987,
+              "prompt_tokens": 8071,
+              "completion_tokens": 35,
+              "reasoning_tokens": 0,
+              "answer_tokens": 35,
+              "total_tokens": 8106,
+              "total_generation_tokens_per_second": 34.45,
+              "reasoning_tokens_per_second": null,
+              "answer_tokens_per_second": 34.45,
+              "end_to_end_completion_tps": 5.26,
+              "reasoning_chunks": 0,
+              "answer_chunks": 12,
+              "reasoning_chars": 0,
+              "answer_chars": 107,
+              "chunks_received": 15,
+              "finish_reason": "stop"
+            },
+            "quality": {
+              "checks": {
+                "structured_result": true,
+                "expected_order": true,
+                "expected_activity": true,
+                "expected_evidence": true,
+                "no_forbidden_selection": true
+              },
+              "passed_checks": 5,
+              "total_checks": 5,
+              "score": 1.0,
+              "selected_result": {
+                "order": "A102",
+                "activity": "collaudo finale da eseguire",
+                "evidence_source_id": "SRC-TARGET-001"
+              },
+              "forbidden_selections_found": [],
+              "pass": true
+            },
+            "answer": "SRH_RESULT: {\"order\":\"A102\",\"activity\":\"collaudo finale da eseguire\",\"evidence_source_id\":\"SRC-TARGET-001\"}"
+          }
+        ]
+      },
+      {
+        "repetition": 3,
+        "concurrency": 1,
+        "cache_state": "warm",
+        "warmup": {
+          "elapsed_seconds": 0.3054,
+          "ttft_seconds": 0.2263,
+          "prompt_tokens": 25
+        },
+        "batch_elapsed_seconds": 6.3864,
+        "aggregate": {
+          "successful_requests": 1,
+          "failed_requests": 0,
+          "total_prompt_tokens": 8071,
+          "total_completion_tokens": 35,
+          "completion_tokens_per_second": 5.48,
+          "quality_pass_rate": 1.0,
+          "quality_score_mean": 1.0
+        },
+        "requests": [
+          {
+            "request_no": 1,
+            "success": true,
+            "worker_elapsed_seconds": 6.3857,
+            "performance": {
+              "mode": "no-think",
+              "elapsed_seconds": 6.3853,
+              "ttft_seconds": 5.3966,
+              "ttfa_seconds": 5.3966,
+              "reasoning_phase_seconds": 0.0,
+              "generation_seconds": 0.9887,
+              "answer_generation_seconds": 0.9887,
+              "prompt_tokens": 8071,
+              "completion_tokens": 35,
+              "reasoning_tokens": 0,
+              "answer_tokens": 35,
+              "total_tokens": 8106,
+              "total_generation_tokens_per_second": 34.39,
+              "reasoning_tokens_per_second": null,
+              "answer_tokens_per_second": 34.39,
+              "end_to_end_completion_tps": 5.48,
+              "reasoning_chunks": 0,
+              "answer_chunks": 12,
+              "reasoning_chars": 0,
+              "answer_chars": 107,
+              "chunks_received": 15,
+              "finish_reason": "stop"
+            },
+            "quality": {
+              "checks": {
+                "structured_result": true,
+                "expected_order": true,
+                "expected_activity": true,
+                "expected_evidence": true,
+                "no_forbidden_selection": true
+              },
+              "passed_checks": 5,
+              "total_checks": 5,
+              "score": 1.0,
+              "selected_result": {
+                "order": "A102",
+                "activity": "collaudo finale da eseguire",
+                "evidence_source_id": "SRC-TARGET-001"
+              },
+              "forbidden_selections_found": [],
+              "pass": true
+            },
+            "answer": "SRH_RESULT: {\"order\":\"A102\",\"activity\":\"collaudo finale da eseguire\",\"evidence_source_id\":\"SRC-TARGET-001\"}"
+          }
+        ]
+      },
+      {
+        "repetition": 4,
+        "concurrency": 1,
+        "cache_state": "warm",
+        "warmup": {
+          "elapsed_seconds": 0.3144,
+          "ttft_seconds": 0.2314,
+          "prompt_tokens": 25
+        },
+        "batch_elapsed_seconds": 6.4618,
+        "aggregate": {
+          "successful_requests": 1,
+          "failed_requests": 0,
+          "total_prompt_tokens": 8071,
+          "total_completion_tokens": 35,
+          "completion_tokens_per_second": 5.42,
+          "quality_pass_rate": 1.0,
+          "quality_score_mean": 1.0
+        },
+        "requests": [
+          {
+            "request_no": 1,
+            "success": true,
+            "worker_elapsed_seconds": 6.4611,
+            "performance": {
+              "mode": "no-think",
+              "elapsed_seconds": 6.4608,
+              "ttft_seconds": 5.4851,
+              "ttfa_seconds": 5.4851,
+              "reasoning_phase_seconds": 0.0,
+              "generation_seconds": 0.9756,
+              "answer_generation_seconds": 0.9756,
+              "prompt_tokens": 8071,
+              "completion_tokens": 35,
+              "reasoning_tokens": 0,
+              "answer_tokens": 35,
+              "total_tokens": 8106,
+              "total_generation_tokens_per_second": 34.85,
+              "reasoning_tokens_per_second": null,
+              "answer_tokens_per_second": 34.85,
+              "end_to_end_completion_tps": 5.42,
+              "reasoning_chunks": 0,
+              "answer_chunks": 12,
+              "reasoning_chars": 0,
+              "answer_chars": 107,
+              "chunks_received": 15,
+              "finish_reason": "stop"
+            },
+            "quality": {
+              "checks": {
+                "structured_result": true,
+                "expected_order": true,
+                "expected_activity": true,
+                "expected_evidence": true,
+                "no_forbidden_selection": true
+              },
+              "passed_checks": 5,
+              "total_checks": 5,
+              "score": 1.0,
+              "selected_result": {
+                "order": "A102",
+                "activity": "collaudo finale da eseguire",
+                "evidence_source_id": "SRC-TARGET-001"
+              },
+              "forbidden_selections_found": [],
+              "pass": true
+            },
+            "answer": "SRH_RESULT: {\"order\":\"A102\",\"activity\":\"collaudo finale da eseguire\",\"evidence_source_id\":\"SRC-TARGET-001\"}"
+          }
+        ]
+      },
+      {
+        "repetition": 5,
+        "concurrency": 1,
+        "cache_state": "warm",
+        "warmup": {
+          "elapsed_seconds": 0.3048,
+          "ttft_seconds": 0.2237,
+          "prompt_tokens": 25
+        },
+        "batch_elapsed_seconds": 6.5228,
+        "aggregate": {
+          "successful_requests": 1,
+          "failed_requests": 0,
+          "total_prompt_tokens": 8071,
+          "total_completion_tokens": 35,
+          "completion_tokens_per_second": 5.37,
+          "quality_pass_rate": 1.0,
+          "quality_score_mean": 1.0
+        },
+        "requests": [
+          {
+            "request_no": 1,
+            "success": true,
+            "worker_elapsed_seconds": 6.522,
+            "performance": {
+              "mode": "no-think",
+              "elapsed_seconds": 6.5215,
+              "ttft_seconds": 5.5148,
+              "ttfa_seconds": 5.5148,
+              "reasoning_phase_seconds": 0.0,
+              "generation_seconds": 1.0067,
+              "answer_generation_seconds": 1.0067,
+              "prompt_tokens": 8071,
+              "completion_tokens": 35,
+              "reasoning_tokens": 0,
+              "answer_tokens": 35,
+              "total_tokens": 8106,
+              "total_generation_tokens_per_second": 33.77,
+              "reasoning_tokens_per_second": null,
+              "answer_tokens_per_second": 33.77,
+              "end_to_end_completion_tps": 5.37,
+              "reasoning_chunks": 0,
+              "answer_chunks": 12,
+              "reasoning_chars": 0,
+              "answer_chars": 107,
+              "chunks_received": 15,
+              "finish_reason": "stop"
+            },
+            "quality": {
+              "checks": {
+                "structured_result": true,
+                "expected_order": true,
+                "expected_activity": true,
+                "expected_evidence": true,
+                "no_forbidden_selection": true
+              },
+              "passed_checks": 5,
+              "total_checks": 5,
+              "score": 1.0,
+              "selected_result": {
+                "order": "A102",
+                "activity": "collaudo finale da eseguire",
+                "evidence_source_id": "SRC-TARGET-001"
+              },
+              "forbidden_selections_found": [],
+              "pass": true
+            },
+            "answer": "SRH_RESULT: {\"order\":\"A102\",\"activity\":\"collaudo finale da eseguire\",\"evidence_source_id\":\"SRC-TARGET-001\"}"
+          }
+        ]
+      }
+    ],
+    "assistant": [
+      {
+        "repetition": 1,
+        "concurrency": 1,
+        "cache_state": "warm",
+        "warmup": {
+          "elapsed_seconds": 0.315,
+          "ttft_seconds": 0.2344,
+          "prompt_tokens": 25
+        },
+        "batch_elapsed_seconds": 23.2606,
+        "aggregate": {
+          "successful_requests": 1,
+          "failed_requests": 0,
+          "total_prompt_tokens": 8014,
+          "total_completion_tokens": 486,
+          "completion_tokens_per_second": 20.89,
+          "quality_pass_rate": 1.0,
+          "quality_score_mean": 1.0
+        },
+        "requests": [
+          {
+            "request_no": 1,
+            "success": true,
+            "worker_elapsed_seconds": 23.26,
+            "performance": {
+              "mode": "no-think",
+              "elapsed_seconds": 23.2596,
+              "ttft_seconds": 6.0076,
+              "ttfa_seconds": 6.0076,
+              "reasoning_phase_seconds": 0.0,
+              "generation_seconds": 17.252,
+              "answer_generation_seconds": 17.252,
+              "prompt_tokens": 8014,
+              "completion_tokens": 486,
+              "reasoning_tokens": 0,
+              "answer_tokens": 486,
+              "total_tokens": 8500,
+              "total_generation_tokens_per_second": 28.11,
+              "reasoning_tokens_per_second": null,
+              "answer_tokens_per_second": 28.11,
+              "end_to_end_completion_tps": 20.89,
+              "reasoning_chunks": 0,
+              "answer_chunks": 182,
+              "reasoning_chars": 0,
+              "answer_chars": 1314,
+              "chunks_received": 184,
+              "finish_reason": "stop"
+            },
+            "quality": {
+              "checks": {
+                "structured_result": true,
+                "expected_order": true,
+                "expected_activity": true,
+                "expected_evidence": true,
+                "no_forbidden_selection": true
+              },
+              "passed_checks": 5,
+              "total_checks": 5,
+              "score": 1.0,
+              "selected_result": {
+                "order": "A102",
+                "activity": "collaudo finale da eseguire",
+                "evidence_source_id": "SRC-TARGET-001"
+              },
+              "forbidden_selections_found": [],
+              "pass": true
+            },
+            "answer": "SRH_RESULT: {\"order\":\"A102\",\"activity\":\"collaudo finale da eseguire\",\"evidence_source_id\":\"SRC-TARGET-001\"}\n\nAnalizzando i record forniti nel contesto per il cliente **Alfa** con data di consegna **2026-09-18**, è stato identificato un unico record corrispondente:\n\n*   **[SRC-TARGET-001]**: ordine=**A102** | cliente=Alfa | consegna=2026-09-18 | stato=produzione completata | attivita_residua=**collaudo finale da eseguire** | reparto=assemblaggio | priorita=alta\n\n**Discussione sui record simili:**\nEsistono altri record per il cliente Alfa con date vicine o stati simili, ma non corrispondono ai criteri specifici della domanda:\n*   **[SRC-HARD-001]** (ordine A103): ha consegna il 2026-09-19 (non il 18) e stessa attività residua.\n*   **[SRC-HARD-003]** (ordine A099): ha consegna il 2026-09-17 (non il 18) e attività residua diversa (\"imballaggio\").\n*   **[SRC-000003]** (ordine O100003): ha consegna il 2026-09-04.\n*   **[SRC-000030]** (ordine O100030): ha consegna il 2026-09-15.\n*   **[SRC-000070]** (ordine O100070): ha consegna il 2026-09-15.\n*   **[SRC-000110]** (ordine O100110): ha consegna il 2026-09-27.\n\nPertanto, l'unico ordine che soddisfa esattamente la data di consegna del 18 settembre 2026 per il cliente Alfa è l'ordine **A102**, la cui attività residua è il **collaudo finale da eseguire**."
+          }
+        ]
+      },
+      {
+        "repetition": 2,
+        "concurrency": 1,
+        "cache_state": "warm",
+        "warmup": {
+          "elapsed_seconds": 0.33,
+          "ttft_seconds": 0.246,
+          "prompt_tokens": 25
+        },
+        "batch_elapsed_seconds": 15.0316,
+        "aggregate": {
+          "successful_requests": 1,
+          "failed_requests": 0,
+          "total_prompt_tokens": 8014,
+          "total_completion_tokens": 257,
+          "completion_tokens_per_second": 17.1,
+          "quality_pass_rate": 1.0,
+          "quality_score_mean": 1.0
+        },
+        "requests": [
+          {
+            "request_no": 1,
+            "success": true,
+            "worker_elapsed_seconds": 15.031,
+            "performance": {
+              "mode": "no-think",
+              "elapsed_seconds": 15.0306,
+              "ttft_seconds": 5.3792,
+              "ttfa_seconds": 5.3792,
+              "reasoning_phase_seconds": 0.0,
+              "generation_seconds": 9.6514,
+              "answer_generation_seconds": 9.6514,
+              "prompt_tokens": 8014,
+              "completion_tokens": 257,
+              "reasoning_tokens": 0,
+              "answer_tokens": 257,
+              "total_tokens": 8271,
+              "total_generation_tokens_per_second": 26.52,
+              "reasoning_tokens_per_second": null,
+              "answer_tokens_per_second": 26.52,
+              "end_to_end_completion_tps": 17.1,
+              "reasoning_chunks": 0,
+              "answer_chunks": 105,
+              "reasoning_chars": 0,
+              "answer_chars": 826,
+              "chunks_received": 107,
+              "finish_reason": "stop"
+            },
+            "quality": {
+              "checks": {
+                "structured_result": true,
+                "expected_order": true,
+                "expected_activity": true,
+                "expected_evidence": true,
+                "no_forbidden_selection": true
+              },
+              "passed_checks": 5,
+              "total_checks": 5,
+              "score": 1.0,
+              "selected_result": {
+                "order": "A102",
+                "activity": "collaudo finale da eseguire",
+                "evidence_source_id": "SRC-TARGET-001"
+              },
+              "forbidden_selections_found": [],
+              "pass": true
+            },
+            "answer": "SRH_RESULT: {\"order\":\"A102\",\"activity\":\"collaudo finale da eseguire\",\"evidence_source_id\":\"SRC-TARGET-001\"}\n\nL'ordine che corrisponde esattamente ai criteri richiesti (cliente Alfa, consegna 2026-09-18) è l'ordine **A102**, come indicato nel record **[SRC-TARGET-001]**. L'attività residua specificata per questo ordine è \"collaudo finale da eseguire\".\n\nÈ importante notare la presenza di un record molto simile, **[SRC-HARD-001]**, che riguarda sempre il cliente Alfa e ha una data di consegna vicina (2026-09-19, non 18), con la stessa attività residua. Tuttavia, poiché la data di consegna richiesta è specificamente il 18 settembre, il record corretto è SRC-TARGET-001. Altri ordini per Alfa con date vicine (es. SRC-000069 con consegna 2026-09-21 o SRC-000068 con 2026-09-01) non corrispondono alla data esatta richiesta."
+          }
+        ]
+      },
+      {
+        "repetition": 3,
+        "concurrency": 1,
+        "cache_state": "warm",
+        "warmup": {
+          "elapsed_seconds": 0.3176,
+          "ttft_seconds": 0.2353,
+          "prompt_tokens": 25
+        },
+        "batch_elapsed_seconds": 15.1786,
+        "aggregate": {
+          "successful_requests": 1,
+          "failed_requests": 0,
+          "total_prompt_tokens": 8014,
+          "total_completion_tokens": 265,
+          "completion_tokens_per_second": 17.46,
+          "quality_pass_rate": 1.0,
+          "quality_score_mean": 1.0
+        },
+        "requests": [
+          {
+            "request_no": 1,
+            "success": true,
+            "worker_elapsed_seconds": 15.1778,
+            "performance": {
+              "mode": "no-think",
+              "elapsed_seconds": 15.1773,
+              "ttft_seconds": 5.3611,
+              "ttfa_seconds": 5.3611,
+              "reasoning_phase_seconds": 0.0,
+              "generation_seconds": 9.8162,
+              "answer_generation_seconds": 9.8162,
+              "prompt_tokens": 8014,
+              "completion_tokens": 265,
+              "reasoning_tokens": 0,
+              "answer_tokens": 265,
+              "total_tokens": 8279,
+              "total_generation_tokens_per_second": 26.89,
+              "reasoning_tokens_per_second": null,
+              "answer_tokens_per_second": 26.89,
+              "end_to_end_completion_tps": 17.46,
+              "reasoning_chunks": 0,
+              "answer_chunks": 109,
+              "reasoning_chars": 0,
+              "answer_chars": 889,
+              "chunks_received": 112,
+              "finish_reason": "stop"
+            },
+            "quality": {
+              "checks": {
+                "structured_result": true,
+                "expected_order": true,
+                "expected_activity": true,
+                "expected_evidence": true,
+                "no_forbidden_selection": true
+              },
+              "passed_checks": 5,
+              "total_checks": 5,
+              "score": 1.0,
+              "selected_result": {
+                "order": "A102",
+                "activity": "collaudo finale da eseguire",
+                "evidence_source_id": "SRC-TARGET-001"
+              },
+              "forbidden_selections_found": [],
+              "pass": true
+            },
+            "answer": "SRH_RESULT: {\"order\":\"A102\",\"activity\":\"collaudo finale da eseguire\",\"evidence_source_id\":\"SRC-TARGET-001\"}\n\nPer il cliente Alfa, l'ordine con data di consegna prevista per il 18 settembre 2026 è l'ordine **A102**. L'attività residua indicata per questo ordine è **collaudo finale da eseguire**.\n\nLa fonte che conferma questi dati è **SRC-TARGET-001**.\n\nSi nota la presenza di un record molto simile, **SRC-HARD-001** (ordine A103), che riguarda anch'esso il cliente Alfa e ha la stessa attività residua (\"collaudo finale da eseguire\"), ma la data di consegna è diversa (19 settembre 2026). Un altro record, **SRC-000069**, ha la stessa data di consegna (18 settembre 2026) e attività simile (\"collaudo finale\"), ma si riferisce al cliente Epsilon, non ad Alfa. Pertanto, l'unico record che soddisfa simultaneamente i criteri di cliente Alfa e data di consegna 2026-09-18 è SRC-TARGET-001."
+          }
+        ]
+      },
+      {
+        "repetition": 4,
+        "concurrency": 1,
+        "cache_state": "warm",
+        "warmup": {
+          "elapsed_seconds": 0.3218,
+          "ttft_seconds": 0.2302,
+          "prompt_tokens": 25
+        },
+        "batch_elapsed_seconds": 12.7017,
+        "aggregate": {
+          "successful_requests": 1,
+          "failed_requests": 0,
+          "total_prompt_tokens": 8014,
+          "total_completion_tokens": 215,
+          "completion_tokens_per_second": 16.93,
+          "quality_pass_rate": 1.0,
+          "quality_score_mean": 1.0
+        },
+        "requests": [
+          {
+            "request_no": 1,
+            "success": true,
+            "worker_elapsed_seconds": 12.7011,
+            "performance": {
+              "mode": "no-think",
+              "elapsed_seconds": 12.7009,
+              "ttft_seconds": 5.4323,
+              "ttfa_seconds": 5.4323,
+              "reasoning_phase_seconds": 0.0,
+              "generation_seconds": 7.2686,
+              "answer_generation_seconds": 7.2686,
+              "prompt_tokens": 8014,
+              "completion_tokens": 215,
+              "reasoning_tokens": 0,
+              "answer_tokens": 215,
+              "total_tokens": 8229,
+              "total_generation_tokens_per_second": 29.44,
+              "reasoning_tokens_per_second": null,
+              "answer_tokens_per_second": 29.44,
+              "end_to_end_completion_tps": 16.93,
+              "reasoning_chunks": 0,
+              "answer_chunks": 85,
+              "reasoning_chars": 0,
+              "answer_chars": 722,
+              "chunks_received": 87,
+              "finish_reason": "stop"
+            },
+            "quality": {
+              "checks": {
+                "structured_result": true,
+                "expected_order": true,
+                "expected_activity": true,
+                "expected_evidence": true,
+                "no_forbidden_selection": true
+              },
+              "passed_checks": 5,
+              "total_checks": 5,
+              "score": 1.0,
+              "selected_result": {
+                "order": "A102",
+                "activity": "collaudo finale da eseguire",
+                "evidence_source_id": "SRC-TARGET-001"
+              },
+              "forbidden_selections_found": [],
+              "pass": true
+            },
+            "answer": "SRH_RESULT: {\"order\":\"A102\",\"activity\":\"collaudo finale da eseguire\",\"evidence_source_id\":\"SRC-TARGET-001\"}\n\nL'ordine che corrisponde ai criteri richiesti (cliente Alfa, consegna 2026-09-18) è l'ordine **A102**, come indicato nel record **[SRC-TARGET-001]**. L'attività residua specificata per questo ordine è \"collaudo finale da eseguire\".\n\nÈ importante notare la presenza di un record molto simile, **[SRC-HARD-001]**, che riguarda anch'esso il cliente Alfa con ordine A103, ma con data di consegna prevista per il 19 settembre 2026 (2026-09-19), non il 18. Pertanto, tale record non soddisfa il criterio temporale della domanda. Nessun altro ordine per il cliente Alfa ha una data di consegna pari al 18 settembre 2026."
+          }
+        ]
+      },
+      {
+        "repetition": 5,
+        "concurrency": 1,
+        "cache_state": "warm",
+        "warmup": {
+          "elapsed_seconds": 0.3219,
+          "ttft_seconds": 0.238,
+          "prompt_tokens": 25
+        },
+        "batch_elapsed_seconds": 14.0898,
+        "aggregate": {
+          "successful_requests": 1,
+          "failed_requests": 0,
+          "total_prompt_tokens": 8014,
+          "total_completion_tokens": 261,
+          "completion_tokens_per_second": 18.52,
+          "quality_pass_rate": 1.0,
+          "quality_score_mean": 1.0
+        },
+        "requests": [
+          {
+            "request_no": 1,
+            "success": true,
+            "worker_elapsed_seconds": 14.0892,
+            "performance": {
+              "mode": "no-think",
+              "elapsed_seconds": 14.0888,
+              "ttft_seconds": 5.5604,
+              "ttfa_seconds": 5.5604,
+              "reasoning_phase_seconds": 0.0,
+              "generation_seconds": 8.5284,
+              "answer_generation_seconds": 8.5284,
+              "prompt_tokens": 8014,
+              "completion_tokens": 261,
+              "reasoning_tokens": 0,
+              "answer_tokens": 261,
+              "total_tokens": 8275,
+              "total_generation_tokens_per_second": 30.49,
+              "reasoning_tokens_per_second": null,
+              "answer_tokens_per_second": 30.49,
+              "end_to_end_completion_tps": 18.53,
+              "reasoning_chunks": 0,
+              "answer_chunks": 96,
+              "reasoning_chars": 0,
+              "answer_chars": 831,
+              "chunks_received": 98,
+              "finish_reason": "stop"
+            },
+            "quality": {
+              "checks": {
+                "structured_result": true,
+                "expected_order": true,
+                "expected_activity": true,
+                "expected_evidence": true,
+                "no_forbidden_selection": true
+              },
+              "passed_checks": 5,
+              "total_checks": 5,
+              "score": 1.0,
+              "selected_result": {
+                "order": "A102",
+                "activity": "collaudo finale da eseguire",
+                "evidence_source_id": "SRC-TARGET-001"
+              },
+              "forbidden_selections_found": [],
+              "pass": true
+            },
+            "answer": "SRH_RESULT: {\"order\":\"A102\",\"activity\":\"collaudo finale da eseguire\",\"evidence_source_id\":\"SRC-TARGET-001\"}\n\nPer il cliente Alfa, l'ordine con data di consegna prevista per il 18 settembre 2026 è l'ordine **A102**. L'attività residua indicata per questo ordine è **collaudo finale da eseguire**.\n\nLa fonte che conferma questi dati è **SRC-TARGET-001**.\n\nSi nota la presenza di un record molto simile, **SRC-HARD-001** (ordine A103, cliente Alfa, consegna 2026-09-19), che differisce per la data di consegna (19 settembre anziché 18) e per l'identificativo dell'ordine. Un altro record, **SRC-HARD-003** (ordine A099, cliente Alfa, consegna 2026-09-17), ha una data di consegna diversa (17 settembre). Pertanto, l'unico record che corrisponde esattamente alla data richiesta (18 settembre 2026) per il cliente Alfa è SRC-TARGET-001."
+          }
+        ]
+      }
+    ]
+  },
+  "demo_notice": "Observed SRH campaign evidence bundled only to exercise the user interface; scope and limitations remain those recorded in the evidence."
+}

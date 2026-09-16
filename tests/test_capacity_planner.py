@@ -77,7 +77,15 @@ class CapacityPlannerTests(unittest.TestCase):
         plan = build_capacity_plan(self.intake)
         ids = set(plan["screening_summary"]["shortlist_candidate_ids"])
         rows = [row for row in plan["candidates"] if row["candidate_id"] in ids]
-        self.assertEqual(len({row["hardware"]["id"] for row in rows}), len(rows))
+        self.assertEqual(
+            len({row["hardware"]["id"] for row in rows}),
+            min(len(rows), len(self.intake["exploration"]["hardware_ids"])),
+        )
+        feasible_models = {
+            row["model"]["id"] for row in plan["candidates"]
+            if row["screening_status"] != "NOT_FEASIBLE"
+        }
+        self.assertEqual({row["model"]["id"] for row in rows}, feasible_models)
 
     def test_invalid_meeting_input_fails_closed(self):
         intake = copy.deepcopy(self.intake)
@@ -144,6 +152,26 @@ class CapacityServerTests(unittest.TestCase):
             report = json.load(response)
         self.assertEqual(report["verdict"], "INSUFFICIENT_EVIDENCE")
         self.assertIsNone(report["recommended_profile_id"])
+
+    def test_bundled_measured_demo_runs_end_to_end(self):
+        with urllib.request.urlopen(self.base + "/api/measured-demo") as response:
+            demo = json.load(response)
+        self.assertEqual(len(demo["evidences"]), 3)
+        request = urllib.request.Request(
+            self.base + "/api/deployment-recommendation",
+            data=json.dumps({
+                "contract": demo["contract"],
+                "manifest": demo["manifest"],
+                "evidences": demo["evidences"],
+            }).encode(),
+            headers={"Content-Type": "application/json"},
+        )
+        with urllib.request.urlopen(request) as response:
+            report = json.load(response)
+        self.assertTrue(report["comparable"])
+        self.assertEqual(len(report["candidates"]), 3)
+        self.assertEqual(report["rejected_evidence"], [])
+        self.assertEqual(report["verdict"], "NO_DEPLOYMENT_MEETS_REQUIREMENTS")
 
 
 if __name__ == "__main__":

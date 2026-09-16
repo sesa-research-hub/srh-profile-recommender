@@ -20,6 +20,19 @@ results to PDF. No client documents are uploaded by this interface. After labora
 tests, the same page can import a candidate manifest and observed evidence JSON files
 to run the measured Deployment Recommender locally.
 
+The measured section provides separate selectors for the first two evidence files,
+plus an optional multi-file selector. **Load measured Qwen demo** loads the three
+observed GB10 profiles from the first SRH campaign together with their original
+Workload Contract and the bundled test manifest. This demonstrates the complete UI
+flow without presenting those measurements as evidence for the current client.
+
+Bundled files:
+
+- `examples/qwen-measured-demo-manifest.json`;
+- `examples/qwen-measured-demo/baseline-8192.json`;
+- `examples/qwen-measured-demo/prefill-4096.json`;
+- `examples/qwen-measured-demo/prefill-16384.json`.
+
 The bundled construction-tender example can also be processed from the CLI:
 
 ```bash
@@ -40,8 +53,9 @@ python3 -m srh.capacity.planner \
 4. **Performance projection** produces a broad planning range using hardware
    bandwidth, active model parameters, concurrency and explicit SRH heuristic
    coefficients. Its confidence is `LOW` until comparable measurements calibrate it.
-5. **Candidate generation** selects up to three feasible candidates, preferring
-   hardware diversity so a pilot compares meaningful deployment classes.
+5. **Candidate generation** selects up to eight feasible candidates, preferring
+   every selected model archetype first and hardware diversity where possible. The
+   meeting UI also exposes the full candidate matrix and the reason for exclusions.
 6. **Benchmark handoff** generates the existing representative experiment plan.
    Exact model snapshot, container, runtime and scenario pack must be resolved before
    execution.
@@ -92,7 +106,9 @@ ground truth, evaluator, response policy and measurement protocol must be identi
 - data residency and maximum device power;
 - model families the client or SRH wants to evaluate.
 
-The planner explores generic model **archetypes** for sizing. Names such as Qwen,
+The planner explores generic model **archetypes** for sizing: dense 3B, 8B, 14B,
+32B and 70B, plus sparse MoE classes from 30B/3B active through 235B/22B active.
+Names such as Qwen,
 DeepSeek or Llama are carried into the benchmark handoff, but the planner makes no
 quality or licensing claim about them. They must be resolved to exact checkpoints
 and evaluated on the client scenario.
