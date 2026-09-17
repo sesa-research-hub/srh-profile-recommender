@@ -39,6 +39,7 @@ function workflowSnapshot() {
       observed_readiness_runs: observedRuns,
       reference_simulations: referenceRuns,
       verified_deployment_recommendation: currentRecommendation,
+      recommendation_scope: currentRecommendation ? latestRecommendation.decision_scope || 'IMPORTED_COMPARABLE_EVIDENCE' : null,
     },
   };
 }
@@ -88,7 +89,9 @@ function workflowRecommendationUpdated() {
 function workflowStatus() {
   if (currentRecommendationIsForAssessment()) {
     if (latestRecommendation.verdict === 'RECOMMENDED') {
-      return {code: 'VERIFIED_RECOMMENDATION', label: 'Recommendation verificata', tone: 'verified'};
+      return latestRecommendation.decision_scope === 'LAB_SYNTHETIC_SCENARIO'
+        ? {code: 'LAB_RECOMMENDATION', label: 'Recommendation di laboratorio — validazione cliente richiesta', tone: 'verified'}
+        : {code: 'VERIFIED_RECOMMENDATION', label: 'Recommendation verificata', tone: 'verified'};
     }
     if (latestRecommendation.verdict === 'NO_DEPLOYMENT_MEETS_REQUIREMENTS') {
       return {code: 'VERIFIED_NO_MATCH', label: 'Misure verificate: nessun candidato idoneo', tone: 'attention'};
@@ -110,6 +113,9 @@ function updateReportReadiness() {
 }
 
 function reportExecutiveText(status) {
+  if (status.code === 'LAB_RECOMMENDATION') {
+    return `Il confronto locale eseguito con protocollo identico indica ${latestRecommendation.recommended_label} come candidato guida nello scenario sintetico. Ha superato qualità, obiettivi di servizio e revisione licenza dichiarata dall’operatore. Prima di una scelta di produzione occorre confermare il risultato con documenti, ground truth e test di accettazione del cliente.`;
+  }
   if (status.code === 'VERIFIED_RECOMMENDATION') {
     return `Le evidenze comparabili indicano ${latestRecommendation.recommended_label} come configurazione preferibile per il perimetro misurato. Qualità, obiettivi di servizio e revisione della licenza risultano compatibili con i criteri inseriti. Prima della produzione resta necessario un test di accettazione sul sito cliente.`;
   }
@@ -158,12 +164,13 @@ function reportRecommendationSection() {
   }
   const report = latestRecommendation;
   const title = report.verdict === 'RECOMMENDED'
-    ? `Configurazione raccomandata: ${esc(report.recommended_label)}`
+    ? `${report.decision_scope === 'LAB_SYNTHETIC_SCENARIO' ? 'Candidato guida in laboratorio' : 'Configurazione raccomandata'}: ${esc(report.recommended_label)}`
     : report.verdict === 'NO_DEPLOYMENT_MEETS_REQUIREMENTS'
       ? 'Nessuna configurazione supera tutti i requisiti'
       : 'Evidenze non ancora sufficienti';
   const rows = report.candidates.map(value => `<tr><td>${esc(value.deployment.label)}</td><td>${esc(value.deployment.model?.snapshot || value.deployment.model?.served_names?.[0] || 'n/d')}</td><td>${reportSeconds(value.checks.ttfa_p95_ms.actual)}</td><td>${reportSeconds(value.checks.end_to_end_p95_ms.actual)}</td><td>${Math.round(value.checks.quality_minimum_score.actual * 100)}%</td><td>${value.eligible ? 'Idoneo' : esc(value.blocking_objectives.join(', '))}</td></tr>`).join('');
-  return `<div class="report-decision ${report.verdict === 'RECOMMENDED' ? 'approved' : 'pending'}"><strong>${title}</strong><p>${esc(report.policy_explanation)}</p></div><table class="report-table"><thead><tr><th>Deployment</th><th>Modello</th><th>TTFA p95</th><th>E2E p95</th><th>Qualità</th><th>Esito</th></tr></thead><tbody>${rows}</tbody></table>`;
+  const scope = report.decision_scope === 'LAB_SYNTHETIC_SCENARIO' ? '<p><strong>Perimetro:</strong> confronto locale sullo scenario sintetico comune; validazione sui documenti cliente ancora necessaria.</p>' : '';
+  return `<div class="report-decision ${report.verdict === 'RECOMMENDED' ? 'approved' : 'pending'}"><strong>${title}</strong><p>${esc(report.policy_explanation)}</p>${scope}</div><table class="report-table"><thead><tr><th>Deployment</th><th>Modello</th><th>TTFA p95</th><th>E2E p95</th><th>Qualità</th><th>Esito</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function buildConsultingReport() {
