@@ -93,6 +93,25 @@ class LocalRuntimeTests(unittest.TestCase):
         )
         self.assertTrue(report["all_checks_pass"])
 
+    def test_ollama_benchmark_preserves_digest_tuning_and_energy(self):
+        answer = json.dumps({
+            "deadline": "30/11/2026", "guarantee_percent": 2,
+            "inspection_deadline": "15/10/2026", "category": "OG1 III",
+            "citations": ["CAP-17", "CAP-22", "CAP-31", "CAP-44"],
+        })
+        runtime = {"id": "ollama-test", "label": "ollama-test", "provider": "ollama", "root": "ollama://ollama-test@sha256:abc", "runtime_fingerprint": "ollama:abc", "digest": "abc", "quantization": "Q4_K_M", "family": "test", "parameter_size": "8B", "maximum_context_tokens": None}
+        shown = {"parameters": "temperature 0.2\ntop_k 40", "model_info": {"general.architecture": "test", "general.parameter_count": 8_000_000_000, "test.context_length": 32768}, "capabilities": ["completion"]}
+        energy = {"supported": True, "average_power_w": 42.0, "energy_wh": 0.1}
+        def runner(*_): return {"answer": answer, "ttfa_seconds": 1, "elapsed_seconds": 2, "answer_tokens_per_second": 30, "answer_tokens": 60, "prompt_tokens": 2000}
+        from unittest.mock import patch
+        with patch("srh.capacity.local_runtime.discover_ollama_models", return_value=[runtime]), patch("srh.capacity.local_runtime._ollama_show", return_value=shown), patch("srh.capacity.local_runtime._power_measurement", side_effect=lambda work: (work(), energy)):
+            report = run_local_benchmark(endpoint="http://127.0.0.1:11434/v1", model="ollama-test", contract=self.contract, profile="quick", repetitions=1, concurrency=1, runner=runner)
+        self.assertEqual(report["runtime_root"], runtime["root"])
+        self.assertEqual(report["runtime_configuration"]["quantization"], "Q4_K_M")
+        self.assertEqual(report["runtime_configuration"]["model_defaults"]["top_k"], "40")
+        self.assertEqual(report["runtime_configuration"]["effective_test_protocol"]["top_k"], -1)
+        self.assertEqual(report["energy_observation"]["average_power_w"], 42.0)
+
     def test_named_reference_preserves_source_and_fails_hard_capacity(self):
         report = simulate_reference_model(
             "deepseek-v4-pro", self.contract, ["nvidia-gb10-128gb"], 4, 750,

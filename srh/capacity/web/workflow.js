@@ -76,14 +76,21 @@ function workflowPlanUpdated() {
   latestRecommendation = null;
   referenceSimulationRuns = [];
   updateWorkflow();
+  refreshBuiltReport();
 }
 
 function workflowEvidenceUpdated() {
   updateWorkflow();
+  refreshBuiltReport();
 }
 
 function workflowRecommendationUpdated() {
   updateWorkflow();
+  refreshBuiltReport();
+}
+
+function refreshBuiltReport() {
+  if (latestPlan && !$('#consulting-report').classList.contains('report-empty')) buildConsultingReport({scroll: false});
 }
 
 function workflowStatus() {
@@ -117,7 +124,7 @@ function reportExecutiveText(status) {
     return `Il confronto locale eseguito con protocollo identico indica ${latestRecommendation.recommended_label} come candidato guida nello scenario sintetico. Ha superato qualità, obiettivi di servizio e revisione licenza dichiarata dall’operatore. Prima di una scelta di produzione occorre confermare il risultato con documenti, ground truth e test di accettazione del cliente.`;
   }
   if (status.code === 'VERIFIED_RECOMMENDATION') {
-    return `Le evidenze comparabili indicano ${latestRecommendation.recommended_label} come configurazione preferibile per il perimetro misurato. Qualità, obiettivi di servizio e revisione della licenza risultano compatibili con i criteri inseriti. Prima della produzione resta necessario un test di accettazione sul sito cliente.`;
+    return `Le evidenze comparabili indicano ${latestRecommendation.recommended_label} come configurazione preferibile per il perimetro misurato. Qualità e obiettivi di servizio risultano compatibili con i criteri inseriti. Prima della produzione restano il test di accettazione sul sito cliente e le verifiche legali e commerciali separate.`;
   }
   if (status.code === 'VERIFIED_NO_MATCH') {
     return 'Le misure raccolte sono confrontabili, ma nessuna configurazione supera contemporaneamente tutti i requisiti. Il risultato evita una scelta prematura e indirizza una nuova iterazione su applicazione, modello, infrastruttura o obiettivi di servizio.';
@@ -145,7 +152,10 @@ function reportReadinessRows() {
   }
   return localBenchmarkRuns.map(value => {
     const summary = value.summary;
-    return `<tr><td>${esc(value.model)}<small>${esc(value.runtime_root || 'runtime non identificato')}</small></td><td>${esc(value.profile)}</td><td>${reportNumber(summary.ttfa_seconds?.p95)} s</td><td>${reportNumber(summary.elapsed_seconds?.p95)} s</td><td>${reportNumber(summary.answer_tokens_per_second?.min)} tok/s</td><td>${value.objective_summary.met}/${value.objective_summary.total}</td></tr>`;
+    const config=value.runtime_configuration||{},energy=value.energy_observation||{},protocol=config.effective_test_protocol||{};
+    const tuning=[config.quantization||'quantizzazione n/d',`top-k ${protocol.top_k??'n/d'}`,`KV ${config.kv_cache?.compression||'n/d'}`,`speculative ${config.speculative_decoding?.status||'n/d'}`].join(' · ');
+    const power=energy.supported?`${reportNumber(energy.average_power_w)} W medi / ${reportNumber(energy.energy_wh)} Wh`:'n/d';
+    return `<tr><td>${esc(value.model)}<small>${esc(value.profile)} · ${esc(value.runtime_root || 'runtime non identificato')}</small><small>${esc(tuning)}</small></td><td>${reportNumber(summary.ttfa_seconds?.p95)} s</td><td>${reportNumber(summary.elapsed_seconds?.p95)} s</td><td>${reportNumber(summary.answer_tokens_per_second?.min)} tok/s</td><td>${power}</td><td>${value.objective_summary.met}/${value.objective_summary.total}</td></tr>`;
   }).join('');
 }
 
@@ -160,20 +170,21 @@ function reportReferenceRows() {
 
 function reportRecommendationSection() {
   if (!currentRecommendationIsForAssessment()) {
-    return `<div class="report-decision pending"><strong>Recommendation di deployment non ancora emessa</strong><p>Occorrono almeno due configurazioni distinte, misurate con lo stesso scenario, ground truth, evaluator, esperimento e protocollo. Le licenze devono essere revisionate e i costi devono avere una provenienza dichiarata quando la politica è cost-first.</p></div>`;
+    const explanation=localBenchmarkRuns.length>=2?'Sono presenti almeno due test di readiness, ma non costituiscono automaticamente una campagna comparativa. Avvia “Confronto reale” nella sezione 4 per rieseguire i candidati con un protocollo comune e produrre il verdetto.':'Seleziona almeno due runtime nella sezione 4 e avvia il confronto reale con lo stesso scenario, evaluator e protocollo.';
+    return `<div class="report-decision pending"><strong>Recommendation prestazionale non ancora emessa</strong><p>${esc(explanation)}</p></div>`;
   }
   const report = latestRecommendation;
   const title = report.verdict === 'RECOMMENDED'
     ? `${report.decision_scope === 'LAB_SYNTHETIC_SCENARIO' ? 'Candidato guida in laboratorio' : 'Configurazione raccomandata'}: ${esc(report.recommended_label)}`
     : report.verdict === 'NO_DEPLOYMENT_MEETS_REQUIREMENTS'
-      ? 'Nessuna configurazione supera tutti i requisiti'
+      ? `Nessuna configurazione supera tutti i requisiti${report.closest_candidate_label ? ` · più vicina ai target: ${esc(report.closest_candidate_label)}` : ''}`
       : 'Evidenze non ancora sufficienti';
-  const rows = report.candidates.map(value => `<tr><td>${esc(value.deployment.label)}</td><td>${esc(value.deployment.model?.snapshot || value.deployment.model?.served_names?.[0] || 'n/d')}</td><td>${reportSeconds(value.checks.ttfa_p95_ms.actual)}</td><td>${reportSeconds(value.checks.end_to_end_p95_ms.actual)}</td><td>${Math.round(value.checks.quality_minimum_score.actual * 100)}%</td><td>${value.eligible ? 'Idoneo' : esc(value.blocking_objectives.join(', '))}</td></tr>`).join('');
+  const rows = report.candidates.map(value => {const config=value.deployment.runtime_configuration||{},energy=value.deployment.energy_observation||{},protocol=config.effective_test_protocol||{};const tuning=[value.deployment.model?.quantization||config.quantization||'n/d',`top-k ${protocol.top_k??'n/d'}`,`KV ${config.kv_cache?.compression||'n/d'}`,`speculative ${config.speculative_decoding?.status||'n/d'}`].join(' · ');const quality=value.checks.quality_minimum_score.actual==null?'qualità n/d':`qualità ${Math.round(value.checks.quality_minimum_score.actual * 100)}%`;return `<tr><td>${esc(value.deployment.label)}<small>${esc(tuning)}</small></td><td>${reportSeconds(value.checks.ttfa_p95_ms.actual)}</td><td>${reportSeconds(value.checks.end_to_end_p95_ms.actual)}</td><td>${reportNumber(value.checks.answer_tokens_per_second_min.actual)} tok/s</td><td>${energy.supported?`${reportNumber(energy.average_power_w)} W / ${reportNumber(energy.energy_wh)} Wh`:'n/d'}</td><td>${value.eligible ? `Idoneo · ${quality}` : `${quality}<small>${esc(value.blocking_objectives.join(', '))}</small>`}</td></tr>`}).join('');
   const scope = report.decision_scope === 'LAB_SYNTHETIC_SCENARIO' ? '<p><strong>Perimetro:</strong> confronto locale sullo scenario sintetico comune; validazione sui documenti cliente ancora necessaria.</p>' : '';
-  return `<div class="report-decision ${report.verdict === 'RECOMMENDED' ? 'approved' : 'pending'}"><strong>${title}</strong><p>${esc(report.policy_explanation)}</p>${scope}</div><table class="report-table"><thead><tr><th>Deployment</th><th>Modello</th><th>TTFA p95</th><th>E2E p95</th><th>Qualità</th><th>Esito</th></tr></thead><tbody>${rows}</tbody></table>`;
+  return `<div class="report-decision ${report.verdict === 'RECOMMENDED' ? 'approved' : 'pending'}"><strong>${title}</strong><p>${esc(report.policy_explanation)}</p>${scope}</div><table class="report-table"><thead><tr><th>Modello e configurazione</th><th>TTFA p95</th><th>E2E p95</th><th>tok/s min.</th><th>Energia</th><th>Esito</th></tr></thead><tbody>${rows}</tbody></table>`;
 }
 
-function buildConsultingReport() {
+function buildConsultingReport({scroll = true} = {}) {
   if (!latestPlan) throw new Error('Calcola prima la shortlist del cliente.');
   const plan = latestPlan;
   const intake = plan.client_inputs;
@@ -190,8 +201,8 @@ function buildConsultingReport() {
     `Le proiezioni non sostituiscono benchmark sul checkpoint, runtime e hardware esatti.`,
   ];
   const nextActions = currentRecommendationIsForAssessment() && latestRecommendation.verdict === 'RECOMMENDED'
-    ? ['Confermare condizioni economiche e responsabilità del fornitore.', 'Eseguire il test di accettazione sul sito cliente.', 'Definire monitoraggio, sicurezza, backup e gestione del ciclo di vita.']
-    : ['Selezionare almeno due deployment distinti dalla shortlist.', 'Eseguire lo stesso scenario con documenti e ground truth approvati dal cliente.', 'Revisionare licenze e costi, quindi rieseguire il Deployment Recommender.'];
+    ? ['Eseguire il test di accettazione sul sito cliente.', 'Verificare separatamente licenza, condizioni economiche e responsabilità del fornitore.', 'Definire monitoraggio, sicurezza, backup e gestione del ciclo di vita.']
+    : ['Selezionare almeno due runtime distinti nella sezione 4.', 'Eseguire lo stesso scenario con documenti e ground truth approvati dal cliente.', 'Ripetere il confronto prestazionale con cinque osservazioni comparabili.'];
 
   $('#consulting-report').innerHTML = `
     <header class="report-cover">
@@ -204,15 +215,15 @@ function buildConsultingReport() {
     <section class="report-section"><span class="report-kicker">01 · SINTESI ESECUTIVA</span><h2>Indicazione per la decisione</h2><p class="report-lead">${esc(reportExecutiveText(status))}</p>${notes ? `<div class="report-note"><strong>Nota del consulente</strong><p>${esc(notes)}</p></div>` : ''}</section>
     <section class="report-section"><span class="report-kicker">02 · PERIMETRO</span><h2>Requisiti raccolti con il cliente</h2><div class="report-facts"><div><strong>${intake.traffic.total_users}</strong><span>utenti totali</span></div><div><strong>${intake.traffic.concurrent_users}</strong><span>utenti simultanei</span></div><div><strong>${intake.traffic.requests_per_day}</strong><span>richieste/giorno</span></div><div><strong>${intake.experience.complete_response_seconds} s</strong><span>risposta completa</span></div></div><table class="report-table"><tbody><tr><th>Utilizzo</th><td>${esc(intake.workload_class)}</td><th>Residenza dati</th><td>${esc(intake.deployment.data_residency)}</td></tr><tr><th>Documenti</th><td>${intake.documents.pages.p50}–${intake.documents.pages.max} pagine</td><th>Modalità</th><td>${esc(intake.documents.context_mode)}</td></tr><tr><th>Qualità</th><td colspan="3">Grounding ${intake.quality.grounding_required ? 'richiesto' : 'facoltativo'} · Citazioni ${intake.quality.citation_required ? 'richieste' : 'facoltative'} · Soglia ${Math.round(intake.quality.minimum_score * 100)}%</td></tr></tbody></table></section>
     <section class="report-section report-page-break"><span class="report-kicker">03 · CAPACITY PLANNING</span><h2>Configurazioni prioritarie da verificare</h2><p>Questa tabella è uno screening: memoria e vincoli sono calcolati; le prestazioni sono proiezioni con provenienza e incertezza dichiarate.</p><table class="report-table shortlist-report"><thead><tr><th>Ambiente</th><th>Classe modello</th><th>Memoria</th><th>Avvio</th><th>Risposta</th><th>Priorità</th></tr></thead><tbody>${reportShortlistRows(plan)}</tbody></table><div class="report-note"><strong>Assunzioni principali</strong><ul>${assumptions.map(value => `<li>${esc(value)}</li>`).join('')}</ul></div></section>
-    <section class="report-section"><span class="report-kicker">04 · EVIDENZE</span><h2>Test e simulazioni raccolti</h2><h3>Readiness osservata</h3><table class="report-table"><thead><tr><th>Runtime</th><th>Profilo</th><th>TTFA p95</th><th>E2E p95</th><th>Velocità min.</th><th>Obiettivi</th></tr></thead><tbody>${reportReadinessRows()}</tbody></table><h3>Simulazioni nominative non misurate</h3><table class="report-table"><thead><tr><th>Modello di riferimento</th><th>Hardware</th><th>Memoria</th><th>Screening</th></tr></thead><tbody>${reportReferenceRows()}</tbody></table><p class="report-caption">Test locali osservati: ${localBenchmarkRuns.length}. Simulazioni di riferimento non misurate: ${referenceSimulationRuns.length}. I due tipi di evidenza non vengono confusi nel verdetto.</p></section>
+    <section class="report-section"><span class="report-kicker">04 · EVIDENZE</span><h2>Test e simulazioni raccolti</h2><h3>Readiness osservata</h3><table class="report-table"><thead><tr><th>Runtime, profilo e configurazione</th><th>TTFA p95</th><th>E2E p95</th><th>Velocità min.</th><th>Energia</th><th>Obiettivi</th></tr></thead><tbody>${reportReadinessRows()}</tbody></table><h3>Simulazioni nominative non misurate</h3><table class="report-table"><thead><tr><th>Modello di riferimento</th><th>Hardware</th><th>Memoria</th><th>Screening</th></tr></thead><tbody>${reportReferenceRows()}</tbody></table><p class="report-caption">Test locali osservati: ${localBenchmarkRuns.length}. Simulazioni di riferimento non misurate: ${referenceSimulationRuns.length}. I due tipi di evidenza non vengono confusi nel verdetto.</p></section>
     <section class="report-section report-page-break"><span class="report-kicker">05 · RECOMMENDATION</span><h2>Decisione e condizioni</h2>${reportRecommendationSection()}</section>
     <section class="report-section"><span class="report-kicker">06 · PIANO D’AZIONE</span><h2>Passi successivi</h2><ol class="report-actions">${nextActions.map(value => `<li>${esc(value)}</li>`).join('')}</ol><div class="report-options"><div><strong>Affidamento a SRH</strong><p>SRH può usare contratto, manifest ed evidenze del dossier come base per progettazione, benchmark estesi e test di accettazione.</p></div><div><strong>Affidamento a un fornitore terzo</strong><p>Il dossier definisce requisiti, shortlist, condizioni di prova e limiti che il fornitore dovrà confermare sul proprio deployment.</p></div></div></section>
-    <section class="report-section report-governance"><span class="report-kicker">07 · TRACCIABILITÀ</span><h2>Provenienza e limiti</h2><ul><li>Requisiti: dichiarazioni raccolte durante la discovery.</li><li>Capacità: calcoli SRH su cataloghi versionati.</li><li>Prestazioni stimate: benchmark vendor scalati o roofline SRH, sempre etichettati.</li><li>Readiness: osservazioni locali su scenario sintetico; non equivalgono a collaudo cliente.</li><li>Recommendation: emessa solo su evidenze comparabili e licenze revisionate.</li></ul><dl class="report-hashes"><div><dt>Intake SHA-256</dt><dd>${plan.integrity.client_intake_sha256}</dd></div><div><dt>Contract SHA-256</dt><dd>${plan.integrity.translated_contract_sha256}</dd></div><div><dt>Planner</dt><dd>${esc(plan.planner_version)}</dd></div><div><dt>Stato</dt><dd>${esc(status.code)}</dd></div></dl><p class="report-caption">Questo documento supporta una decisione tecnica e commerciale nel perimetro dichiarato. Non sostituisce il progetto esecutivo, la verifica legale delle licenze, la valutazione di sicurezza o il collaudo di produzione.</p></section>
+    <section class="report-section report-governance"><span class="report-kicker">07 · TRACCIABILITÀ</span><h2>Provenienza e limiti</h2><ul><li>Requisiti: dichiarazioni raccolte durante la discovery.</li><li>Capacità: calcoli SRH su cataloghi versionati.</li><li>Prestazioni stimate: benchmark vendor scalati o roofline SRH, sempre etichettati.</li><li>Readiness: osservazioni locali su scenario sintetico; non equivalgono a collaudo cliente.</li><li>Recommendation prestazionale: emessa solo su misure comparabili; licenze e TCO restano verifiche separate.</li></ul><dl class="report-hashes"><div><dt>Intake SHA-256</dt><dd>${plan.integrity.client_intake_sha256}</dd></div><div><dt>Contract SHA-256</dt><dd>${plan.integrity.translated_contract_sha256}</dd></div><div><dt>Planner</dt><dd>${esc(plan.planner_version)}</dd></div><div><dt>Stato</dt><dd>${esc(status.code)}</dd></div></dl><p class="report-caption">Questo documento supporta una decisione tecnica e commerciale nel perimetro dichiarato. Non sostituisce il progetto esecutivo, la verifica legale delle licenze, la valutazione di sicurezza o il collaudo di produzione.</p></section>
     <footer class="report-footer"><span>SRH Private AI Recommender</span><span>${esc(plan.assessment_id)} · ${reportDate(now)}</span></footer>`;
   $('#save-report-pdf').disabled = false;
   $('#download-session').disabled = false;
   $('#consulting-report').classList.remove('report-empty');
-  $('#consulting-report').scrollIntoView({behavior: 'smooth', block: 'start'});
+  if (scroll) $('#consulting-report').scrollIntoView({behavior: 'smooth', block: 'start'});
 }
 
 function openReportComposer() {

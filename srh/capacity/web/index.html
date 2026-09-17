@@ -125,17 +125,16 @@
     </section>
 
     <section id="recommendation-workflow" class="results workflow-section hidden" aria-live="polite">
-      <div class="workflow-heading"><div class="workflow-title"><span class="phase-number">4</span><div><p class="eyebrow dark">DEPLOYMENT RECOMMENDATION</p><h2>Confronto live guidato</h2><p>Seleziona almeno due modelli locali. SRH esegue lo stesso test su ogni candidato, raccoglie i KPI e applica qualità, SLO e licenza come vincoli obbligatori.</p></div></div><div id="workflow-evidence-status" class="workflow-status"></div></div>
+      <div class="workflow-heading"><div class="workflow-title"><span class="phase-number">4</span><div><p class="eyebrow dark">PERFORMANCE RECOMMENDATION</p><h2>Confronto live guidato</h2><p>Seleziona almeno due modelli locali. SRH esegue lo stesso test su ogni candidato e confronta prestazioni, qualità, configurazione runtime ed energia osservata.</p></div></div><div id="workflow-evidence-status" class="workflow-status"></div></div>
       <div class="panel live-comparison">
         <div class="live-comparison-intro"><div><h3>1. Scegli i candidati presenti sulla macchina</h3><p>Il pannello rileva runtime OpenAI-compatible già attivi e modelli generativi installati in Ollama. I modelli Ollama non caricati verranno avviati su richiesta.</p></div><button id="refresh-comparison-models" class="button secondary" type="button">Aggiorna inventario</button></div>
         <div id="live-candidate-options" class="live-candidate-options"><p>Rilevamento in corso…</p></div>
         <div class="comparison-protocol">
           <div><h3>2. Imposta un protocollo comune</h3><p>Le prove sono sequenziali perché i modelli condividono lo stesso acceleratore. Cinque ripetizioni consentono un esito; tre producono solo evidenza preliminare.</p></div>
-          <div class="grid four">
+          <div class="grid three comparison-controls">
             <label>Carico del test<select id="comparison-profile"><option value="quick">Rapido — verifica tecnica</option><option value="representative" selected>Rappresentativo — caso tipico</option><option value="stress">Stress — caso impegnativo</option></select></label>
             <label>Ripetizioni<select id="comparison-repetitions"><option value="3">3 — esplorativo</option><option value="5" selected>5 — confronto decisionale</option></select></label>
             <label>Utenti simultanei<input id="comparison-concurrency" type="number" min="1" max="8" value="1"></label>
-            <label>Politica di scelta<select id="comparison-policy"><option value="performance_first">Prestazioni prima del costo</option><option value="cost_first">Costo triennale prima delle prestazioni</option></select></label>
           </div>
         </div>
         <div class="comparison-run-row"><p id="comparison-selection-summary">Seleziona almeno due identità runtime distinte.</p><button id="run-live-comparison" class="button primary" type="button">Avvia confronto reale</button></div>

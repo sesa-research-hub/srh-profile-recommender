@@ -5,7 +5,6 @@
 
 from __future__ import annotations
 
-import math
 from datetime import datetime, timezone
 from typing import Any, Callable
 
@@ -20,14 +19,6 @@ SCHEMA = "srh.live-deployment-comparison.v1"
 def _require(condition: bool, message: str) -> None:
     if not condition:
         raise ValueError(message)
-
-
-def _finite_optional(value: Any, label: str, *, positive: bool = False) -> float | None:
-    if value in (None, ""):
-        return None
-    _require(type(value) in (int, float) and math.isfinite(value), f"{label} must be a finite number")
-    _require(value > 0 if positive else value >= 0, f"invalid {label}")
-    return float(value)
 
 
 def _profile_id(runtime: dict[str, Any]) -> tuple[str, str]:
@@ -64,9 +55,6 @@ def _candidate_row(runtime: dict[str, Any], metadata: dict[str, Any], observatio
     }
     if not quality_checks_pass:
         blocking.append("required_quality_checks")
-    license_status = metadata["license_review_status"]
-    if license_status != "approved":
-        blocking.append("license_review_status")
     profile_id, profile_sha256 = _profile_id(runtime)
     return {
         "profile_id": profile_id,
@@ -83,10 +71,12 @@ def _candidate_row(runtime: dict[str, Any], metadata: dict[str, Any], observatio
             },
             "engine": runtime.get("provider"),
             "image_id": runtime.get("root"),
-            "license_review_status": license_status,
-            "estimated_three_year_cost_eur": metadata.get("estimated_three_year_cost_eur"),
-            "cost_provenance": metadata.get("cost_provenance"),
-            "device_power_w": metadata.get("device_power_w"),
+            "license_review_status": "outside_performance_comparison",
+            "estimated_three_year_cost_eur": None,
+            "cost_provenance": None,
+            "device_power_w": None,
+            "runtime_configuration": observation.get("runtime_configuration"),
+            "energy_observation": observation.get("energy_observation"),
         },
         "checks": checks,
         "eligible": not blocking,
@@ -107,7 +97,7 @@ def run_live_comparison(
     _require(profile in {"quick", "representative", "stress"}, "unsupported comparison profile")
     _require(repetitions in {3, 5}, "comparison repetitions must be 3 or 5")
     _require(type(concurrency) is int and 1 <= concurrency <= 8, "concurrency must be between 1 and 8")
-    _require(policy in {"performance_first", "cost_first"}, "unsupported comparison policy")
+    _require(policy == "performance_first", "live local comparison supports performance_first only")
 
     inventory = {item["runtime_fingerprint"]: item for item in discovery()}
     fingerprints = [item.get("runtime_fingerprint") for item in candidates]
@@ -118,18 +108,7 @@ def run_live_comparison(
     for selected in candidates:  # Sequential by design: local models share the same accelerator.
         runtime = inventory.get(selected["runtime_fingerprint"])
         _require(runtime is not None, f"local runtime is no longer available: {selected.get('label', 'unknown')}")
-        license_status = selected.get("license_review_status", "review_required")
-        _require(license_status in {"approved", "review_required", "restricted"}, "invalid license review status")
-        metadata = {
-            "label": runtime["label"],
-            "license_review_status": license_status,
-            "estimated_three_year_cost_eur": _finite_optional(selected.get("estimated_three_year_cost_eur"), "three-year cost"),
-            "device_power_w": _finite_optional(selected.get("device_power_w"), "device power", positive=True),
-        }
-        cost_provenance = selected.get("cost_provenance")
-        if metadata["estimated_three_year_cost_eur"] is not None:
-            _require(cost_provenance in {"supplier_quote", "calculated", "customer_provided"}, "cost provenance is required")
-            metadata["cost_provenance"] = cost_provenance
+        metadata = {"label": runtime["label"]}
         observation = benchmark(
             endpoint=runtime["endpoint"], model=runtime["id"], contract=contract,
             profile=profile, repetitions=repetitions, concurrency=concurrency,
@@ -137,21 +116,18 @@ def run_live_comparison(
         rows.append(_candidate_row(runtime, metadata, observation))
 
     eligible = [row for row in rows if row["eligible"]]
-    missing_cost = policy == "cost_first" and any(
-        row["deployment"]["estimated_three_year_cost_eur"] is None for row in eligible
-    )
-    if policy == "cost_first":
-        ranked = sorted(eligible, key=lambda row: (
-            row["deployment"]["estimated_three_year_cost_eur"] if row["deployment"]["estimated_three_year_cost_eur"] is not None else math.inf,
-            row["checks"]["ttfa_p95_ms"]["actual"], row["checks"]["end_to_end_p95_ms"]["actual"],
-        ))
-    else:
-        ranked = sorted(eligible, key=lambda row: (
-            row["checks"]["ttfa_p95_ms"]["actual"], row["checks"]["end_to_end_p95_ms"]["actual"],
-            -row["checks"]["answer_tokens_per_second_min"]["actual"],
-            row["deployment"]["estimated_three_year_cost_eur"] if row["deployment"]["estimated_three_year_cost_eur"] is not None else math.inf,
-        ))
-    evidence_complete = repetitions == 5 and not missing_cost
+    ranked = sorted(eligible, key=lambda row: (
+        row["checks"]["ttfa_p95_ms"]["actual"], row["checks"]["end_to_end_p95_ms"]["actual"],
+        -row["checks"]["answer_tokens_per_second_min"]["actual"], row["profile_sha256"],
+    ))
+    diagnostic_ranked = sorted(rows, key=lambda row: (
+        -sum(1 for check in row["checks"].values() if check["pass"]),
+        -(row["checks"]["quality_minimum_score"]["actual"] or 0),
+        row["checks"]["ttfa_p95_ms"]["actual"] if row["checks"]["ttfa_p95_ms"]["actual"] is not None else float("inf"),
+        row["checks"]["end_to_end_p95_ms"]["actual"] if row["checks"]["end_to_end_p95_ms"]["actual"] is not None else float("inf"),
+        row["profile_sha256"],
+    ))
+    evidence_complete = repetitions == 5
     verdict = (
         "INSUFFICIENT_EVIDENCE" if not evidence_complete else
         "RECOMMENDED" if ranked else
@@ -167,8 +143,10 @@ def run_live_comparison(
         "verdict": verdict,
         "recommended_profile_id": selected["profile_id"] if selected else None,
         "recommended_label": selected["deployment"]["label"] if selected else None,
+        "closest_candidate_profile_id": diagnostic_ranked[0]["profile_id"] if diagnostic_ranked else None,
+        "closest_candidate_label": diagnostic_ranked[0]["deployment"]["label"] if diagnostic_ranked else None,
         "policy": policy,
-        "policy_explanation": "Qualità, SLO e revisione della licenza sono vincoli obbligatori; tra i candidati idonei prevalgono " + ("costo triennale, TTFA ed E2E." if policy == "cost_first" else "TTFA, E2E, throughput e infine il costo disponibile."),
+        "policy_explanation": "Qualità e SLO sono vincoli obbligatori; tra i candidati idonei prevalgono TTFA p95, E2E p95 e throughput minimo. Costi e licenze non influenzano questo confronto prestazionale locale.",
         "decision_scope": "LAB_SYNTHETIC_SCENARIO",
         "comparison_scope": "stesso contratto, scenario, ground truth, evaluator, profilo, ripetizioni e concorrenza; modelli e runtime possono differire",
         "minimum_observed_deployments": 2,
@@ -180,13 +158,13 @@ def run_live_comparison(
         "ranking": [row["profile_id"] for row in ranked] if evidence_complete else [],
         "recommended_next_action": (
             "Eseguire il test di accettazione con documenti e ground truth del cliente." if verdict == "RECOMMENDED" else
-            "Ripetere con cinque misure e completare costi/licenze richiesti." if verdict == "INSUFFICIENT_EVIDENCE" else
+            "Ripetere con cinque misure usando lo stesso protocollo." if verdict == "INSUFFICIENT_EVIDENCE" else
             "Provare una diversa configurazione o rivedere gli obiettivi con il cliente."
         ),
         "limitations": [
             "La recommendation riguarda lo scenario sintetico comune eseguito sul sistema locale.",
             "La qualità sul dominio cliente richiede documenti, ground truth e revisione di un esperto del cliente.",
-            "Lo stato della licenza e gli eventuali costi sono dichiarazioni dell'operatore, non inferenze automatiche.",
+            "Licenze, acquisto hardware e TCO sono valutazioni separate dal confronto prestazionale locale.",
             "Prima dell'impegno di produzione resta necessario un test di accettazione sul sito cliente.",
         ],
     }
