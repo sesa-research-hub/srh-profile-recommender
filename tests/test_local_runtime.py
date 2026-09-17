@@ -3,7 +3,7 @@ import threading
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 import unittest
 
-from srh.capacity.local_runtime import discover_local_models, run_local_benchmark, validate_local_endpoint
+from srh.capacity.local_runtime import discover_local_models, discover_ollama_models, run_local_benchmark, validate_local_endpoint
 from srh.capacity.reference import simulate_reference_model
 from pathlib import Path
 
@@ -48,6 +48,24 @@ class LocalRuntimeTests(unittest.TestCase):
     def test_external_endpoint_is_rejected(self):
         with self.assertRaises(ValueError):
             validate_local_endpoint("https://example.com/v1")
+
+    def test_ollama_discovery_keeps_identity_and_excludes_embeddings(self):
+        class Response:
+            def __init__(self, value): self.value = value
+            def __enter__(self): return self
+            def __exit__(self, *_): return False
+            def read(self): return json.dumps(self.value).encode()
+        tags = {"models": [
+            {"name": "chat:latest", "digest": "abc123", "size": 42, "details": {"family": "qwen", "parameter_size": "8B", "quantization_level": "Q4_K_M"}},
+            {"name": "nomic-embed-text:latest", "digest": "def456", "details": {"family": "nomic-bert"}},
+        ]}
+        running = {"models": [{"name": "chat:latest", "digest": "abc123"}]}
+        from unittest.mock import patch
+        with patch("srh.capacity.local_runtime.urllib.request.urlopen", side_effect=[Response(tags), Response(running)]):
+            rows = discover_ollama_models()
+        self.assertEqual([row["id"] for row in rows], ["chat:latest"])
+        self.assertEqual(rows[0]["runtime_fingerprint"], "ollama:abc123")
+        self.assertTrue(rows[0]["loaded"])
 
     def test_readiness_benchmark_scores_raw_local_response(self):
         answer = json.dumps({

@@ -125,12 +125,31 @@
     </section>
 
     <section id="recommendation-workflow" class="results workflow-section hidden" aria-live="polite">
-      <div class="workflow-heading"><div class="workflow-title"><span class="phase-number">4</span><div><p class="eyebrow dark">DEPLOYMENT RECOMMENDATION</p><h2>Confronta solo evidenze realmente comparabili</h2><p>Qualità e SLO sono gate obbligatori. Licenze e costi restano metadati revisionati da persone, con provenienza dichiarata.</p></div></div><div id="workflow-evidence-status" class="workflow-status"></div></div>
+      <div class="workflow-heading"><div class="workflow-title"><span class="phase-number">4</span><div><p class="eyebrow dark">DEPLOYMENT RECOMMENDATION</p><h2>Confronto live guidato</h2><p>Seleziona almeno due modelli locali. SRH esegue lo stesso test su ogni candidato, raccoglie i KPI e applica qualità, SLO e licenza come vincoli obbligatori.</p></div></div><div id="workflow-evidence-status" class="workflow-status"></div></div>
+      <div class="panel live-comparison">
+        <div class="live-comparison-intro"><div><h3>1. Scegli i candidati presenti sulla macchina</h3><p>Il pannello rileva runtime OpenAI-compatible già attivi e modelli generativi installati in Ollama. I modelli Ollama non caricati verranno avviati su richiesta.</p></div><button id="refresh-comparison-models" class="button secondary" type="button">Aggiorna inventario</button></div>
+        <div id="live-candidate-options" class="live-candidate-options"><p>Rilevamento in corso…</p></div>
+        <div class="comparison-protocol">
+          <div><h3>2. Imposta un protocollo comune</h3><p>Le prove sono sequenziali perché i modelli condividono lo stesso acceleratore. Cinque ripetizioni consentono un esito; tre producono solo evidenza preliminare.</p></div>
+          <div class="grid four">
+            <label>Carico del test<select id="comparison-profile"><option value="quick">Rapido — verifica tecnica</option><option value="representative" selected>Rappresentativo — caso tipico</option><option value="stress">Stress — caso impegnativo</option></select></label>
+            <label>Ripetizioni<select id="comparison-repetitions"><option value="3">3 — esplorativo</option><option value="5" selected>5 — confronto decisionale</option></select></label>
+            <label>Utenti simultanei<input id="comparison-concurrency" type="number" min="1" max="8" value="1"></label>
+            <label>Politica di scelta<select id="comparison-policy"><option value="performance_first">Prestazioni prima del costo</option><option value="cost_first">Costo triennale prima delle prestazioni</option></select></label>
+          </div>
+        </div>
+        <div class="comparison-run-row"><p id="comparison-selection-summary">Seleziona almeno due identità runtime distinte.</p><button id="run-live-comparison" class="button primary" type="button">Avvia confronto reale</button></div>
+      </div>
       <div id="measured-result"></div>
       <details class="panel json-import">
           <summary>Opzione avanzata: importa manifest ed evidenze JSON</summary>
-          <p>Usa questa modalità per campagne già eseguite su altri sistemi o per riprodurre la precedente campagna GB10.</p>
-          <div class="demo-row"><div class="buttons"><button id="load-measured-demo" class="button secondary" type="button">Carica demo con le misure Qwen precedenti</button><button id="download-demo-manifest" class="button secondary" type="button">Scarica manifest demo</button></div><span id="measured-files">Nessun pacchetto caricato.</span></div>
+          <p>Usa questa modalità per campagne già eseguite su altri sistemi. Non è sufficiente un JSON generico: contratto, manifest e misure grezze devono rispettare gli schemi e lo stesso protocollo.</p>
+          <div class="import-guide">
+            <h3>Cosa deve contenere il pacchetto</h3>
+            <ol><li><strong>1 Workload Contract</strong> con requisiti, qualità e SLO.</li><li><strong>1 Candidate Manifest</strong> con almeno due profili runtime, stato licenza e costi se usi cost-first.</li><li><strong>Almeno 2 evidenze grezze</strong>, ciascuna con profilo live, cinque ripetizioni, batch completi, ground truth ed evaluator.</li></ol>
+            <p>Scenario, protocollo, concorrenza, token, evaluator e ground truth devono coincidere. SRH ricalcola i KPI dai batch grezzi e ignora summary manipolate.</p>
+          </div>
+          <div class="demo-row"><div class="buttons"><button id="load-measured-demo" class="button secondary" type="button">Carica pacchetto dimostrativo</button><button id="download-import-guide" class="button secondary" type="button">Scarica guida JSON</button><button id="download-demo-package" class="button secondary" type="button">Scarica file di esempio</button></div><span id="measured-files">Nessun pacchetto caricato.</span></div>
           <div class="grid two">
             <label>Contratto workload JSON <small>(facoltativo: usa quello corrente)</small><input id="measured-contract-file" type="file" accept="application/json,.json"></label>
             <label>Manifest candidati JSON<input id="manifest-file" type="file" accept="application/json,.json"></label>

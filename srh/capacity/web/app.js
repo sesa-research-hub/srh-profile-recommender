@@ -30,12 +30,22 @@ function setForm(v){const f=$('#intake-form');const set=(n,x)=>{if(f.elements[n]
 
 async function refreshRuntimeChoices(){
   const local=await fetch('/api/local-models').then(r=>r.json()).catch(()=>({models:[]}));runtimeChoices=new Map();const groups=[];
-  if(local.models.length){groups.push(`<optgroup label="Disponibili ora sul DGX">${local.models.map((v,i)=>{const key=`local-${i}`;runtimeChoices.set(key,v);return `<option value="${key}">${esc(v.label)} · locale</option>`}).join('')}</optgroup>`)}
+  if(local.models.length){groups.push(`<optgroup label="Disponibili ora sul DGX">${local.models.map((v,i)=>{const key=`local-${i}`;runtimeChoices.set(key,v);return `<option value="${key}">${esc(v.label)} · ${esc(v.provider)}</option>`}).join('')}</optgroup>`)}
   groups.push(`<optgroup label="Catalogo di riferimento — non installati">${catalogs.reference_models.items.map((v,i)=>{const key=`reference-${i}`;runtimeChoices.set(key,{...v,kind:'REFERENCE_NOT_INSTALLED'});return `<option value="${key}">${esc(v.name)} · simulazione</option>`}).join('')}</optgroup>`);
-  $('#runtime-model-select').innerHTML=groups.join('')||'<option value="">Nessun modello rilevato</option>';renderRuntimeInfo();
+  $('#runtime-model-select').innerHTML=groups.join('')||'<option value="">Nessun modello rilevato</option>';renderRuntimeInfo();renderLiveCandidateOptions();
 }
 
-function renderRuntimeInfo(){const value=runtimeChoices.get($('#runtime-model-select').value);if(!value){$('#runtime-model-info').textContent='Nessun modello selezionato.';return}if(value.kind==='LOCAL_AVAILABLE'){const snapshot=value.root?value.root.split('/').pop():'identità snapshot non esposta';$('#runtime-model-info').innerHTML=`<strong>Disponibile e testabile ora</strong><span>${esc(value.provider)} · ${esc(value.endpoint)} · contesto ${Number(value.maximum_context_tokens||0).toLocaleString('it-IT')} token</span><small>Snapshot/runtime: ${esc(snapshot)}</small>`;$('#run-model-test').textContent='Avvia benchmark locale'}else{const benchmarks=(value.published_benchmarks||[]).map(v=>`${esc(v.name)}: <strong>${esc(v.value)}</strong>`).join(' · ')||'Nessun valore numerico pubblicato nel catalogo.';$('#runtime-model-info').innerHTML=`<strong>Riferimento non installato</strong><span>${value.total_parameters_b}B totali / ${value.active_parameters_b}B attivi · contesto ${value.maximum_context_tokens.toLocaleString('it-IT')} · licenza dichiarata ${esc(value.license)}</span><small>${benchmarks} I benchmark del produttore non misurano il caso cliente.</small>`;$('#run-model-test').textContent='Simula capacità del modello'}}
+function renderLiveCandidateOptions(){
+  const local=[...runtimeChoices.entries()].filter(([,v])=>v.kind==='LOCAL_AVAILABLE');
+  const box=$('#live-candidate-options');
+  if(!local.length){box.innerHTML='<div class="demo-notice"><strong>Nessun modello generativo locale rilevato.</strong><p>Avvia un endpoint OpenAI-compatible su 127.0.0.1:18300/8000 oppure il servizio Ollama su 127.0.0.1:11434.</p></div>';updateComparisonSelection();return}
+  box.innerHTML=local.map(([key,v])=>{const detail=[v.parameter_size,v.quantization,v.loaded?'già caricato':'caricato al test'].filter(Boolean).join(' · ');const identity=v.digest?`sha256:${v.digest.slice(0,12)}…`:(v.root||v.runtime_fingerprint);return `<article class="live-candidate" data-runtime-key="${key}"><label class="candidate-select"><input type="checkbox" class="comparison-candidate"><span><strong>${esc(v.label)}</strong><small>${esc(v.provider)} · ${esc(detail||'runtime attivo')}</small><code>${esc(identity)}</code></span></label><div class="candidate-metadata"><label>Revisione licenza<select class="candidate-license"><option value="review_required" selected>Da revisionare</option><option value="approved">Approvata per questo uso</option><option value="restricted">Con restrizioni</option></select></label><label>Potenza dispositivo (W)<input class="candidate-power" type="number" min="1" placeholder="facoltativo"></label><label>Costo 3 anni (€)<input class="candidate-cost" type="number" min="0" step="100" placeholder="facoltativo"></label><label>Fonte del costo<select class="candidate-cost-source"><option value="calculated">Calcolo interno</option><option value="supplier_quote">Preventivo fornitore</option><option value="customer_provided">Dato del cliente</option></select></label></div></article>`}).join('');
+  all('.comparison-candidate').forEach(input=>input.addEventListener('change',updateComparisonSelection));updateComparisonSelection();
+}
+
+function updateComparisonSelection(){const count=all('.live-candidate .comparison-candidate:checked').length;$('#comparison-selection-summary').textContent=count<2?`${count} selezionato/i. Ne servono almeno 2.`:`${count} candidati: verranno provati in sequenza con lo stesso protocollo.`;$('#run-live-comparison').disabled=count<2}
+
+function renderRuntimeInfo(){const value=runtimeChoices.get($('#runtime-model-select').value);if(!value){$('#runtime-model-info').textContent='Nessun modello selezionato.';return}if(value.kind==='LOCAL_AVAILABLE'){const snapshot=value.digest?`sha256:${value.digest.slice(0,16)}…`:(value.root?value.root.split('/').pop():'identità snapshot non esposta');const context=value.maximum_context_tokens?` · contesto ${Number(value.maximum_context_tokens).toLocaleString('it-IT')} token`:'';const availability=value.loaded?'già caricato':'installato, caricamento al test';$('#runtime-model-info').innerHTML=`<strong>Disponibile e testabile ora</strong><span>${esc(value.provider)} · ${esc(value.endpoint)}${context} · ${esc(availability)}</span><small>Identità runtime: ${esc(snapshot)}</small>`;$('#run-model-test').textContent='Avvia benchmark locale'}else{const benchmarks=(value.published_benchmarks||[]).map(v=>`${esc(v.name)}: <strong>${esc(v.value)}</strong>`).join(' · ')||'Nessun valore numerico pubblicato nel catalogo.';$('#runtime-model-info').innerHTML=`<strong>Riferimento non installato</strong><span>${value.total_parameters_b}B totali / ${value.active_parameters_b}B attivi · contesto ${value.maximum_context_tokens.toLocaleString('it-IT')} · licenza dichiarata ${esc(value.license)}</span><small>${benchmarks} I benchmark del produttore non misurano il caso cliente.</small>`;$('#run-model-test').textContent='Simula capacità del modello'}}
 
 function render(plan){
   latestPlan=plan;localBenchmarkRuns=[];referenceSimulationRuns=[];latestRecommendation=null;$('#local-test-result').innerHTML='';$('#measured-result').innerHTML='';const c=plan.translated_workload_contract;const shortlist=new Set(plan.screening_summary.shortlist_candidate_ids);
@@ -54,6 +64,7 @@ function render(plan){
   const families=plan.benchmark_handoff.requested_model_families||[];
   $('#assumptions').innerHTML=`<ul><li>Token derivati da pagine e parole dichiarate.</li><li>${Math.round(plan.client_inputs.documents.scanned_fraction*100)}% dei documenti dichiarati come scansioni.</li><li>Famiglie richieste: ${families.length?families.map(esc).join(', '):'da definire'}.</li><li>Prestazioni H100 dense: benchmark interattivo NVIDIA scalato; altre combinazioni: roofline SRH a bassa confidenza.</li><li>Qualità, OCR e retrieval non sono simulati.</li><li>${plan.historical_evidence_coverage.length} evidenza storica SRH pertinente all’hardware selezionato.</li><li>Esito finale solo dopo benchmark osservato.</li></ul>`;
   $('#local-concurrency').value=Math.min(8,Math.max(...c.traffic.concurrent_users));
+  $('#comparison-concurrency').value=Math.min(8,Math.max(...c.traffic.concurrent_users));
   $('#results').classList.remove('hidden');workflowPlanUpdated();$('#results').scrollIntoView({behavior:'smooth'});
 }
 
@@ -63,6 +74,7 @@ $('#download-json').addEventListener('click',()=>{if(!latestPlan)return;const a=
 $('#print').addEventListener('click',()=>openReportComposer());
 $('#runtime-model-select').addEventListener('change',renderRuntimeInfo);
 $('#refresh-local-models').addEventListener('click',refreshRuntimeChoices);
+$('#refresh-comparison-models').addEventListener('click',refreshRuntimeChoices);
 function renderLocalBenchmark(report){
   const s=report.summary,fmt=v=>v==null?'n/d':Number(v).toLocaleString('it-IT',{maximumFractionDigits:2});
   const checkLabels={ttfa_p95:'Avvio della risposta',end_to_end_p95:'Durata della risposta prodotta',answer_speed_min:'Velocità di generazione',error_rate:'Affidabilità delle richieste',quality_minimum:'Correttezza dell’estrazione sintetica'};
@@ -116,13 +128,44 @@ $('#run-model-test').addEventListener('click',async()=>{
     button.disabled=false;renderRuntimeInfo();
   }
 });
+
+const blockerLabels={ttfa_p95_ms:'prima risposta oltre target',end_to_end_p95_ms:'risposta completa oltre target',answer_tokens_per_second_min:'velocità di generazione insufficiente',error_rate_max:'troppi errori',quality_minimum_score:'qualità sotto soglia',required_quality_checks:'controlli qualità obbligatori',license_review_status:'licenza da revisionare'};
+function renderRecommendationResult(report,{isDemo=false}={}){
+  const current=currentRecommendationIsForAssessment();
+  const decision=report.verdict==='RECOMMENDED'?`Candidato guida: ${report.recommended_label}`:report.verdict==='NO_DEPLOYMENT_MEETS_REQUIREMENTS'?'Nessun candidato soddisfa tutti i requisiti':'Confronto preliminare: decisione non ancora emessa';
+  const action=isDemo&&!current?'Il pacchetto dimostrativo usa un contratto diverso e resta escluso dal dossier cliente.':report.verdict==='RECOMMENDED'?'La misura vale per lo scenario sintetico comune. Il passo successivo è provarla sui documenti e sulla ground truth del cliente.':report.verdict==='NO_DEPLOYMENT_MEETS_REQUIREMENTS'?'Prova una configurazione diversa o concorda target differenti, senza modificare retroattivamente il protocollo.':'Usa cinque ripetizioni, approva le licenze dopo revisione e inserisci i costi se scegli la politica cost-first.';
+  const value=(v,digits=2)=>v==null?'n/d':Number(v).toLocaleString('it-IT',{maximumFractionDigits:digits});
+  const rows=report.candidates.map((v,index)=>`<tr><td data-label="Candidato"><strong>${index===0&&report.ranking?.[0]===v.profile_id?'1 · ':''}${esc(v.deployment.label)}</strong><small>${esc(v.deployment.engine||'runtime')} · ${esc(v.deployment.model?.quantization||'quantizzazione n/d')}</small></td><td data-label="Avvio p95">${value(v.checks.ttfa_p95_ms.actual/1000)} s</td><td data-label="Risposta p95">${value(v.checks.end_to_end_p95_ms.actual/1000)} s</td><td data-label="Velocità min.">${value(v.checks.answer_tokens_per_second_min.actual)} tok/s</td><td data-label="Qualità">${value(v.checks.quality_minimum_score.actual*100,0)}%</td><td data-label="Esito">${v.eligible?'<span class="badge potential">Idoneo ai gate</span>':`<span class="badge blocked">Da approfondire</span><small>${esc(v.blocking_objectives.map(x=>blockerLabels[x]||x).join('; '))}</small>`}</td></tr>`).join('');
+  return `<div class="${current?'verified':'demo-notice'}"><span>${report.decision_scope==='LAB_SYNTHETIC_SCENARIO'?'CONFRONTO LOCALE OSSERVATO':'ESITO SU DATI IMPORTATI'}</span><strong>${esc(decision)}</strong><p>${esc(action)}</p></div><div class="comparison-table-scroll" role="region" aria-label="Risultati confronto reale" tabindex="0"><table class="comparison-table measured-comparison"><thead><tr><th>Candidato</th><th>Avvio p95</th><th>Risposta p95</th><th>Velocità min.</th><th>Qualità</th><th>Esito</th></tr></thead><tbody>${rows}</tbody></table></div><p class="result-explainer"><strong>Perimetro:</strong> ${esc(report.comparison_scope)}. ${esc(report.recommended_next_action)}</p>`;
+}
+
+$('#run-live-comparison').addEventListener('click',async()=>{
+  const button=$('#run-live-comparison');
+  try{
+    if(!latestPlan)throw new Error('Calcola prima la shortlist del cliente.');
+    const selected=all('.live-candidate').filter(card=>card.querySelector('.comparison-candidate').checked).map(card=>{const runtime=runtimeChoices.get(card.dataset.runtimeKey),cost=card.querySelector('.candidate-cost').value,power=card.querySelector('.candidate-power').value;return {runtime_fingerprint:runtime.runtime_fingerprint,label:runtime.label,license_review_status:card.querySelector('.candidate-license').value,estimated_three_year_cost_eur:cost===''?null:Number(cost),cost_provenance:cost===''?null:card.querySelector('.candidate-cost-source').value,device_power_w:power===''?null:Number(power)}});
+    if(selected.length<2)throw new Error('Seleziona almeno due candidati locali distinti.');
+    button.disabled=true;button.textContent='Confronto in corso…';
+    $('#measured-result').innerHTML=`<div class="running"><strong>Campagna avviata su ${selected.length} candidati.</strong><p>I modelli vengono eseguiti in sequenza. Ollama può impiegare tempo per caricare i pesi; non chiudere questa pagina.</p></div>`;
+    const response=await fetch('/api/live-comparison',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({contract:latestPlan.translated_workload_contract,candidates:selected,profile:$('#comparison-profile').value,repetitions:Number($('#comparison-repetitions').value),concurrency:Number($('#comparison-concurrency').value),policy:$('#comparison-policy').value})});
+    const report=await response.json();
+    if(!response.ok)throw new Error(report.error||'Confronto locale non riuscito');
+    latestRecommendation=report;
+    for(const row of report.candidates){if(row.observation){localBenchmarkRuns=localBenchmarkRuns.filter(v=>!(v.model===row.observation.model&&v.profile===row.observation.profile&&v.concurrency===row.observation.concurrency));localBenchmarkRuns.push(row.observation)}}
+    workflowRecommendationUpdated();
+    $('#measured-result').innerHTML=renderRecommendationResult(report);
+  }catch(err){$('#measured-result').innerHTML='';$('#error').textContent=err.message;$('#error').classList.remove('hidden')}
+  finally{button.textContent='Avvia confronto reale';updateComparisonSelection()}
+});
+
 const readJson=file=>file.text().then(text=>JSON.parse(text));
 const downloadJson=(name,value)=>{const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([JSON.stringify(value,null,2)],{type:'application/json'}));a.download=name;a.click();URL.revokeObjectURL(a.href)};
 const selectedEvidenceFiles=()=>all('.evidence-file').flatMap(input=>[...input.files]);
 const updateMeasuredFiles=()=>{if(measuredDemo){$('#measured-files').textContent=`Demo caricata: 1 manifest, 1 contratto e ${measuredDemo.evidences.length} evidenze osservate.`;return}const files=selectedEvidenceFiles();$('#measured-files').textContent=files.length?`${files.length} evidenze selezionate: ${files.map(v=>v.name).join(', ')}`:'Nessun pacchetto caricato.'};
 all('#manifest-file, #measured-contract-file, .evidence-file').forEach(input=>input.addEventListener('change',()=>{measuredDemo=null;updateMeasuredFiles()}));
 $('#load-measured-demo').addEventListener('click',async()=>{try{measuredDemo=await fetch('/api/measured-demo').then(r=>{if(!r.ok)throw new Error('Demo non disponibile');return r.json()});updateMeasuredFiles();$('#measured-result').innerHTML='<div class="demo-notice"><strong>Demo pronta.</strong> Usa “Valuta evidenze misurate”. I tre file provengono dalla precedente campagna SRH su GB10; il contratto è quello del test, non quello del cliente corrente.</div>'}catch(err){$('#error').textContent=err.message;$('#error').classList.remove('hidden')}});
-$('#download-demo-manifest').addEventListener('click',async()=>{try{const pack=measuredDemo||await fetch('/api/measured-demo').then(r=>r.json());downloadJson('qwen-measured-demo-manifest.json',pack.manifest)}catch(err){$('#error').textContent=err.message;$('#error').classList.remove('hidden')}});
+$('#download-import-guide').addEventListener('click',async()=>{try{const guide=await fetch('/api/evidence-import-guide').then(r=>r.json());downloadJson('SRH-evidence-import-guide.json',guide)}catch(err){$('#error').textContent=err.message;$('#error').classList.remove('hidden')}});
+$('#download-demo-package').addEventListener('click',async()=>{try{const pack=measuredDemo||await fetch('/api/measured-demo').then(r=>r.json());downloadJson('01-workload-contract.json',pack.contract);downloadJson('02-candidate-manifest.json',pack.manifest);pack.evidences.forEach((item,index)=>downloadJson(`03-evidence-${index+1}.json`,item.evidence))}catch(err){$('#error').textContent=err.message;$('#error').classList.remove('hidden')}});
 $('#evaluate-measured').addEventListener('click',async()=>{
   try{
     if(!latestPlan&&!measuredDemo)throw new Error('Calcola prima la shortlist o carica la demo misurata.');
@@ -144,9 +187,7 @@ $('#evaluate-measured').addEventListener('click',async()=>{
     const current=currentRecommendationIsForAssessment();
     const label=!current?'Demo misurata separata dal caso cliente':report.verdict==='RECOMMENDED'?'Configurazione raccomandata':report.verdict==='NO_DEPLOYMENT_MEETS_REQUIREMENTS'?'Misure valide: serve una nuova configurazione':'Confronto non ancora conclusivo';
     const action=!current?'Il contratto della demo è diverso da quello del cliente corrente. Il risultato viene mostrato come esempio e non entra nel report decisionale.':report.verdict==='RECOMMENDED'?`La configurazione ${report.recommended_label} supera qualità e obiettivi; il prossimo passo è il test di accettazione sul sito cliente.`:report.verdict==='NO_DEPLOYMENT_MEETS_REQUIREMENTS'?'La qualità è stata verificata, ma nessun candidato supera tutti gli obiettivi di servizio. Modifica la shortlist o concorda un target diverso e ripeti il benchmark.':'Completa le evidenze mancanti o rendi identici scenario, evaluator, esperimento e protocollo.';
-    const blockerLabels={ttfa_p95_ms:'prima risposta oltre target',end_to_end_p95_ms:'risposta completa oltre target',answer_tokens_per_second_min:'velocità di generazione insufficiente',error_rate_max:'troppi errori',quality_minimum_score:'qualità sotto soglia',required_quality_checks:'controlli qualità obbligatori',license_review_status:'licenza non approvata'};
-    const candidateRows=report.candidates.map(v=>`<tr><td>${esc(v.deployment.label)}</td><td>${(v.checks.ttfa_p95_ms.actual/1000).toLocaleString('it-IT')} s</td><td>${(v.checks.end_to_end_p95_ms.actual/1000).toLocaleString('it-IT')} s</td><td>${Math.round(v.checks.quality_minimum_score.actual*100)}%</td><td>${v.eligible?'Tutti i requisiti superati':esc(v.blocking_objectives.map(x=>blockerLabels[x]||x).join('; '))}</td></tr>`).join('');
-    $('#measured-result').innerHTML=`<div class="${current?'verified':'demo-notice'}"><span>ESITO SU DATI MISURATI</span><strong>${esc(label)}</strong><p>${esc(action)}</p></div><table><thead><tr><th>Candidato</th><th>Prima risposta p95</th><th>Risposta completa p95</th><th>Qualità</th><th>Valutazione</th></tr></thead><tbody>${candidateRows}</tbody></table>`;
+    $('#measured-result').innerHTML=renderRecommendationResult(report,{isDemo:!current});
   }catch(err){
     $('#error').textContent=err.message;$('#error').classList.remove('hidden');
   }

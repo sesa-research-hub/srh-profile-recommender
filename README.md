@@ -13,9 +13,10 @@ requirements, calculates feasibility, projects broad performance ranges, preserv
 observed evidence and produces a dossier that can be handed to SRH or another supplier.
 Estimates remain separate from observed evidence throughout the report.
 
-The product is intended for multiple model families. The initial integration and
-validation use Docker/vLLM; Qwen is the first test backend. Model weights and
-inference implementations remain external to the SRH decision engine.
+The product is intended for multiple model families. The live interface discovers
+OpenAI-compatible runtimes and installed Ollama models; Qwen/vLLM remains the first
+historical validation campaign. Model weights and inference implementations remain
+external to the SRH decision engine.
 
 ## What is implemented
 
@@ -28,7 +29,10 @@ inference implementations remain external to the SRH decision engine.
 - A Linux/Docker campaign runner that measures three prefill budgets and restores the original container.
 - A local Capacity Planner interface for client discovery, feasibility screening and benchmark handoff.
 - A Deployment Recommender for controlled, observed comparisons across hardware and exact models.
-- Local model discovery and observed readiness benchmarking from the client-meeting UI.
+- Local model discovery across OpenAI-compatible endpoints and Ollama, with immutable
+  digest/runtime identity and filtering of embedding-only models.
+- A guided live comparison that runs the same scenario sequentially on two to six
+  local models, recalculates KPI gates and labels the result as laboratory evidence.
 - Sourced named-model reference simulations kept separate from local measurements.
 - A client-ready PDF composition with evidence status, shortlist, observed results,
   recommendation, next actions, limitations and integrity hashes.
@@ -59,6 +63,8 @@ It runs on `http://127.0.0.1:8765`, uploads no documents and persists nothing un
 the user downloads the assessment session or saves the composed report to PDF. See the
 [Capacity Planner guide](srh/capacity/README.md) and the
 [workload-to-deployment architecture](docs/CAPACITY-ARCHITECTURE.md).
+For externally executed campaigns, the advanced importer follows the
+[JSON evidence import guide](docs/JSON-EVIDENCE-IMPORT.md).
 
 Compare three previously collected evidence files:
 

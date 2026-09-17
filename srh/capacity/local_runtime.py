@@ -19,6 +19,7 @@ from srh.benchmark import stream_chat
 
 
 DEFAULT_ENDPOINTS = ("http://127.0.0.1:18300/v1", "http://127.0.0.1:8000/v1")
+OLLAMA_API = "http://127.0.0.1:11434"
 PROFILES = {
     "quick": {"input_cap": 2048, "output_cap": 256},
     "representative": {"input_cap": 16384, "output_cap": 768},
@@ -33,29 +34,101 @@ def validate_local_endpoint(value: str) -> str:
     return value.rstrip("/")
 
 
-def discover_local_models(endpoints: tuple[str, ...] = DEFAULT_ENDPOINTS) -> list[dict[str, Any]]:
+def _read_json(url: str, timeout: int = 2) -> dict[str, Any]:
+    with urllib.request.urlopen(url, timeout=timeout) as response:
+        value = json.loads(response.read())
+    if not isinstance(value, dict):
+        raise ValueError("model inventory must be a JSON object")
+    return value
+
+
+def _is_embedding_model(value: dict[str, Any]) -> bool:
+    details = value.get("details") or {}
+    text = " ".join(str(item).lower() for item in (
+        value.get("name"), value.get("model"), details.get("family"),
+        *(details.get("families") or []),
+    ) if item)
+    return any(marker in text for marker in ("embed", "nomic-bert", "bge-", "e5-"))
+
+
+def discover_ollama_models(api_base: str = OLLAMA_API) -> list[dict[str, Any]]:
+    """Return installed generative Ollama models, including immutable identity metadata."""
+    api_base = validate_local_endpoint(api_base)
+    try:
+        payload = _read_json(api_base + "/api/tags")
+    except (OSError, ValueError, json.JSONDecodeError):
+        return []
+    try:
+        running = _read_json(api_base + "/api/ps")
+    except (OSError, ValueError, json.JSONDecodeError):
+        running = {"models": []}
+    loaded = {str(item.get("digest")) for item in running.get("models", []) if item.get("digest")}
+    found: list[dict[str, Any]] = []
+    for item in payload.get("models", []):
+        if not isinstance(item, dict) or _is_embedding_model(item):
+            continue
+        model_id = item.get("name") or item.get("model")
+        digest = item.get("digest")
+        if not isinstance(model_id, str) or not model_id or not isinstance(digest, str) or not digest:
+            continue
+        details = item.get("details") or {}
+        is_loaded = digest in loaded
+        found.append({
+            "kind": "LOCAL_AVAILABLE",
+            "id": model_id,
+            "label": model_id,
+            "endpoint": api_base + "/v1",
+            "provider": "ollama",
+            "root": f"ollama://{model_id}@sha256:{digest}",
+            "runtime_fingerprint": f"ollama:{digest}",
+            "digest": digest,
+            "installed_size_bytes": item.get("size"),
+            "family": details.get("family"),
+            "parameter_size": details.get("parameter_size"),
+            "quantization": details.get("quantization_level"),
+            "maximum_context_tokens": None,
+            "loaded": is_loaded,
+            "availability": "LOADED" if is_loaded else "INSTALLED_LOAD_ON_DEMAND",
+            "can_run_now": True,
+        })
+    return found
+
+
+def discover_local_models(
+    endpoints: tuple[str, ...] | None = None, *, include_ollama: bool | None = None,
+) -> list[dict[str, Any]]:
+    if endpoints is None:
+        endpoints = DEFAULT_ENDPOINTS
+        include_ollama = True if include_ollama is None else include_ollama
+    elif include_ollama is None:
+        include_ollama = False
     found: list[dict[str, Any]] = []
     for raw_endpoint in endpoints:
         endpoint = validate_local_endpoint(raw_endpoint)
         try:
-            with urllib.request.urlopen(endpoint + "/models", timeout=2) as response:
-                payload = json.loads(response.read())
+            payload = _read_json(endpoint + "/models")
         except (OSError, ValueError, json.JSONDecodeError):
             continue
         for item in payload.get("data", []):
             model_id = item.get("id")
             if not isinstance(model_id, str) or not model_id:
                 continue
+            root = item.get("root")
             found.append({
                 "kind": "LOCAL_AVAILABLE",
                 "id": model_id,
                 "label": model_id,
                 "endpoint": endpoint,
                 "provider": item.get("owned_by", "openai-compatible"),
-                "root": item.get("root"),
+                "root": root,
+                "runtime_fingerprint": str(root or f"{endpoint}:{model_id}"),
                 "maximum_context_tokens": item.get("max_model_len"),
+                "loaded": True,
+                "availability": "LOADED",
                 "can_run_now": True,
             })
+    if include_ollama:
+        found.extend(discover_ollama_models())
     return found
 
 

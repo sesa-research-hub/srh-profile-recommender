@@ -18,6 +18,7 @@ from .planner import CapacityPlanningError, build_capacity_plan
 from .local_runtime import discover_local_models, run_local_benchmark
 from .reference import simulate_reference_model
 from ..recommendation.deployment import recommend_deployment
+from ..recommendation.live import run_live_comparison
 
 
 ROOT = Path(__file__).resolve().parent
@@ -81,6 +82,24 @@ class CapacityHandler(BaseHTTPRequestHandler):
                 ],
             })
             return
+        if path == "/api/evidence-import-guide":
+            self._json(200, {
+                "schema": "srh.evidence-import-guide.v1",
+                "required_files": {
+                    "contract": {"count": 1, "schema": "srh.workload-contract.v1"},
+                    "manifest": {"count": 1, "schema": "srh.deployment-candidates.v1"},
+                    "evidence": {"minimum_count": 2, "schema": "srh.paired-response-experiment.v1"},
+                },
+                "comparability_rules": [
+                    "Each evidence must contain at least five complete repetitions.",
+                    "Scenario, ground truth, evaluator, experiment and protocol must match.",
+                    "Each manifest profile_id must match one observed live runtime profile.",
+                    "Raw batches are recalculated; stored summaries are not trusted.",
+                    "License review is explicit; cost-first requires a sourced cost for every eligible candidate.",
+                ],
+                "documentation": "docs/JSON-EVIDENCE-IMPORT.md",
+            })
+            return
         item = STATIC.get(path)
         if item is None:
             self._json(404, {"error": "not found"})
@@ -92,7 +111,7 @@ class CapacityHandler(BaseHTTPRequestHandler):
 
     def do_POST(self) -> None:  # noqa: N802
         path = urlparse(self.path).path
-        if path not in {"/api/plan", "/api/deployment-recommendation", "/api/local-benchmark", "/api/reference-simulation"}:
+        if path not in {"/api/plan", "/api/deployment-recommendation", "/api/live-comparison", "/api/local-benchmark", "/api/reference-simulation"}:
             self._json(404, {"error": "not found"})
             return
         try:
@@ -129,6 +148,19 @@ class CapacityHandler(BaseHTTPRequestHandler):
                 self._json(200, simulate_reference_model(
                     str(payload.get("model_id", "")), contract, hardware_ids,
                     int(payload.get("weight_bits", 4)), payload.get("maximum_power_w"),
+                ))
+            elif path == "/api/live-comparison":
+                contract = payload.get("contract")
+                candidates = payload.get("candidates")
+                if not isinstance(contract, dict) or not isinstance(candidates, list):
+                    raise CapacityPlanningError("contract and candidates are required")
+                self._json(200, run_live_comparison(
+                    contract=contract,
+                    candidates=candidates,
+                    profile=str(payload.get("profile", "representative")),
+                    repetitions=payload.get("repetitions", 5),
+                    concurrency=payload.get("concurrency", 1),
+                    policy=str(payload.get("policy", "performance_first")),
                 ))
             else:
                 contract = payload.get("contract")
