@@ -32,7 +32,9 @@ external to the SRH decision engine.
 - Local model discovery across OpenAI-compatible endpoints and Ollama, with immutable
   digest/runtime identity and filtering of embedding-only models.
 - A guided live comparison that runs the same scenario sequentially on two to six
-  local models, recalculates KPI gates and labels the result as laboratory evidence.
+  local models, recalculates KPI gates, records exposed runtime parameters and GPU
+  energy, and labels the result as laboratory evidence. This local ranking is
+  performance-only; licensing and TCO remain separate procurement checks.
 - Sourced named-model reference simulations kept separate from local measurements.
 - A client-ready PDF composition with evidence status, shortlist, observed results,
   recommendation, next actions, limitations and integrity hashes.

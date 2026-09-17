@@ -10,6 +10,9 @@ import json
 import math
 import re
 import statistics
+import subprocess
+import threading
+import time
 from datetime import datetime, timezone
 from typing import Any, Callable
 from urllib.parse import urlparse
@@ -94,6 +97,115 @@ def discover_ollama_models(api_base: str = OLLAMA_API) -> list[dict[str, Any]]:
     return found
 
 
+def _ollama_show(model: str, api_base: str = OLLAMA_API) -> dict[str, Any]:
+    request = urllib.request.Request(
+        validate_local_endpoint(api_base) + "/api/show",
+        data=json.dumps({"model": model}).encode("utf-8"),
+        headers={"Content-Type": "application/json"},
+        method="POST",
+    )
+    try:
+        with urllib.request.urlopen(request, timeout=5) as response:
+            value = json.loads(response.read())
+        return value if isinstance(value, dict) else {}
+    except (OSError, ValueError, json.JSONDecodeError):
+        return {}
+
+
+def _model_parameters(raw: Any) -> dict[str, str]:
+    result: dict[str, str] = {}
+    if not isinstance(raw, str):
+        return result
+    for line in raw.splitlines():
+        parts = line.split(None, 1)
+        if len(parts) == 2:
+            result[parts[0]] = parts[1]
+    return result
+
+
+def inspect_runtime_configuration(endpoint: str, model: str, observed: dict[str, Any] | None) -> dict[str, Any]:
+    provider = (observed or {}).get("provider", "openai-compatible")
+    result: dict[str, Any] = {
+        "provider": provider,
+        "model": model,
+        "runtime_identity": (observed or {}).get("runtime_fingerprint"),
+        "quantization": (observed or {}).get("quantization"),
+        "family": (observed or {}).get("family"),
+        "parameter_size": (observed or {}).get("parameter_size"),
+        "maximum_context_tokens": (observed or {}).get("maximum_context_tokens"),
+        "kv_cache": {"policy": "runtime_managed", "compression": (observed or {}).get("kv_cache_dtype") or "not_exposed_by_runtime_api"},
+        "speculative_decoding": {"status": "enabled" if (observed or {}).get("speculative_config") else "not_exposed_by_runtime_api", "configuration": (observed or {}).get("speculative_config")},
+    }
+    if endpoint == OLLAMA_API + "/v1":
+        shown = _ollama_show(model)
+        info = shown.get("model_info") or {}
+        context = next((value for key, value in info.items() if key.endswith(".context_length")), None)
+        result.update({
+            "provider": "ollama",
+            "architecture": info.get("general.architecture"),
+            "parameter_count": info.get("general.parameter_count"),
+            "maximum_context_tokens": context,
+            "model_defaults": _model_parameters(shown.get("parameters")),
+            "capabilities": shown.get("capabilities") or [],
+            "ollama_versioned_digest": (observed or {}).get("digest"),
+        })
+    return result
+
+
+def _gpu_power_sample() -> tuple[str, float] | None:
+    try:
+        output = subprocess.check_output([
+            "nvidia-smi", "--query-gpu=name,power.draw", "--format=csv,noheader,nounits",
+        ], text=True, timeout=3).strip().splitlines()[0]
+        name, raw_power = output.rsplit(",", 1)
+        return name.strip(), float(raw_power.strip())
+    except (OSError, subprocess.SubprocessError, ValueError, IndexError):
+        return None
+
+
+def _power_measurement(work: Callable[[], list[dict[str, Any]]]) -> tuple[list[dict[str, Any]], dict[str, Any]]:
+    baseline_values = [sample[1] for sample in (_gpu_power_sample() for _ in range(3)) if sample]
+    samples: list[float] = []
+    gpu_name = None
+    stop = threading.Event()
+
+    def monitor() -> None:
+        nonlocal gpu_name
+        while not stop.is_set():
+            sample = _gpu_power_sample()
+            if sample:
+                gpu_name, value = sample
+                samples.append(value)
+            stop.wait(0.25)
+
+    started = time.perf_counter()
+    thread = threading.Thread(target=monitor, daemon=True)
+    thread.start()
+    try:
+        result = work()
+    finally:
+        stop.set()
+        thread.join(timeout=4)
+    duration = time.perf_counter() - started
+    baseline = statistics.mean(baseline_values) if baseline_values else None
+    average = statistics.mean(samples) if samples else None
+    incremental = max(0.0, average - baseline) if average is not None and baseline is not None else None
+    return result, {
+        "supported": bool(samples),
+        "gpu_name": gpu_name,
+        "sample_count": len(samples),
+        "baseline_power_w": round(baseline, 2) if baseline is not None else None,
+        "average_power_w": round(average, 2) if average is not None else None,
+        "peak_power_w": round(max(samples), 2) if samples else None,
+        "incremental_average_power_w": round(incremental, 2) if incremental is not None else None,
+        "campaign_duration_seconds": round(duration, 3),
+        "energy_wh": round(average * duration / 3600, 4) if average is not None else None,
+        "incremental_energy_wh": round(incremental * duration / 3600, 4) if incremental is not None else None,
+        "method": "nvidia-smi power.draw sampled during the complete benchmark",
+        "boundary": "Host GPU observation; other concurrent GPU activity can affect the measurement.",
+    }
+
+
 def discover_local_models(
     endpoints: tuple[str, ...] | None = None, *, include_ollama: bool | None = None,
 ) -> list[dict[str, Any]]:
@@ -122,6 +234,11 @@ def discover_local_models(
                 "provider": item.get("owned_by", "openai-compatible"),
                 "root": root,
                 "runtime_fingerprint": str(root or f"{endpoint}:{model_id}"),
+                "quantization": item.get("quantization"),
+                "family": item.get("family"),
+                "parameter_size": item.get("parameter_size"),
+                "kv_cache_dtype": item.get("kv_cache_dtype") or item.get("cache_dtype"),
+                "speculative_config": item.get("speculative_config"),
                 "maximum_context_tokens": item.get("max_model_len"),
                 "loaded": True,
                 "availability": "LOADED",
@@ -220,7 +337,8 @@ def run_local_benchmark(
     runner: Callable[[str, str, dict[str, Any], int], dict[str, Any]] = stream_chat,
 ) -> dict[str, Any]:
     endpoint = validate_local_endpoint(endpoint)
-    observed_model = next((item for item in discover_local_models((endpoint,)) if item["id"] == model), None)
+    discovered = discover_ollama_models() if endpoint == OLLAMA_API + "/v1" else discover_local_models((endpoint,))
+    observed_model = next((item for item in discovered if item["id"] == model), None)
     if profile not in PROFILES:
         raise ValueError("unsupported benchmark profile")
     if not isinstance(repetitions, int) or not 1 <= repetitions <= 5:
@@ -248,8 +366,13 @@ def run_local_benchmark(
             return {"error": str(exc), "quality": {"score": 0.0, "pass": False, "checks": {}}}
 
     total = repetitions * concurrency
-    with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as pool:
-        runs = list(pool.map(execute, range(total)))
+    warmup = execute(-1)
+
+    def measured_work() -> list[dict[str, Any]]:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=concurrency) as pool:
+            return list(pool.map(execute, range(total)))
+
+    runs, energy = _power_measurement(measured_work)
     successful = [run for run in runs if "error" not in run]
     qualities = [run["quality"]["score"] for run in runs]
     summary = {
@@ -289,6 +412,25 @@ def run_local_benchmark(
         "model": model,
         "runtime_root": observed_model.get("root") if observed_model else None,
         "maximum_context_tokens": observed_model.get("maximum_context_tokens") if observed_model else None,
+        "runtime_configuration": {
+            **inspect_runtime_configuration(endpoint, model, observed_model),
+            "effective_test_protocol": {
+                "reasoning": "disabled",
+                "temperature": config["sampling"]["temperature"],
+                "top_p": config["sampling"]["top_p"],
+                "top_k": config["sampling"]["top_k"],
+                "presence_penalty": config["sampling"]["presence_penalty"],
+                "maximum_output_tokens": target_output,
+                "warmup_requests_excluded": 1,
+            },
+        },
+        "energy_observation": energy,
+        "warmup": {
+            "success": "error" not in warmup,
+            "elapsed_seconds": warmup.get("elapsed_seconds"),
+            "error": warmup.get("error"),
+            "included_in_kpis": False,
+        },
         "profile": profile,
         "requested_input_tokens": target_input,
         "requested_output_tokens": target_output,

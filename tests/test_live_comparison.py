@@ -47,29 +47,29 @@ class LiveComparisonTests(unittest.TestCase):
         report = self.compare()
         self.assertEqual(report["verdict"], "RECOMMENDED")
         self.assertEqual(report["recommended_label"], "Alpha")
+        self.assertEqual(report["closest_candidate_label"], "Alpha")
         self.assertEqual(report["decision_scope"], "LAB_SYNTHETIC_SCENARIO")
         self.assertEqual(len(report["ranking"]), 2)
 
     def test_three_runs_remain_preliminary(self):
         self.assertEqual(self.compare(repetitions=3)["verdict"], "INSUFFICIENT_EVIDENCE")
 
-    def test_license_is_a_hard_gate(self):
+    def test_commercial_metadata_does_not_block_local_performance_result(self):
         candidates = copy.deepcopy(self.candidates)
         candidates[0]["license_review_status"] = "review_required"
         report = self.compare(candidates=candidates)
-        self.assertEqual(report["recommended_label"], "Beta")
-        self.assertIn("license_review_status", report["candidates"][0]["blocking_objectives"])
+        self.assertEqual(report["recommended_label"], "Alpha")
+        self.assertNotIn("license_review_status", report["candidates"][0]["blocking_objectives"])
 
-    def test_cost_first_requires_cost_for_every_eligible_candidate(self):
-        candidates = copy.deepcopy(self.candidates)
-        candidates[1]["estimated_three_year_cost_eur"] = None
-        self.assertEqual(self.compare(candidates=candidates, policy="cost_first")["verdict"], "INSUFFICIENT_EVIDENCE")
+    def test_live_comparison_rejects_cost_first_policy(self):
+        with self.assertRaisesRegex(ValueError, "performance_first"):
+            self.compare(policy="cost_first")
 
-    def test_declared_cost_requires_provenance(self):
+    def test_declared_cost_does_not_change_performance_ranking(self):
         candidates = copy.deepcopy(self.candidates)
         candidates[0].pop("cost_provenance")
-        with self.assertRaisesRegex(ValueError, "cost provenance"):
-            self.compare(candidates=candidates)
+        candidates[0]["estimated_three_year_cost_eur"] = 999999
+        self.assertEqual(self.compare(candidates=candidates)["recommended_label"], "Alpha")
 
     def test_runtime_identity_is_rechecked_before_measurement(self):
         candidates = copy.deepcopy(self.candidates)
